@@ -1,0 +1,20 @@
+@page
+@model Somtumzing.Backend.Api.Pages.Admin.IndexModel
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Somtumzing Back Office</title>
+</head>
+<body>
+    <main>
+        <h1>Somtumzing Back Office</h1>
+        <p>Signed in as @User.Identity?.Name</p>
+        <p>Admin access is configured. Player-management tools can be added here.</p>
+        <form method="post" asp-page-handler="SignOut">
+            <button type="submit">Sign out</button>
+        </form>
+    </main>
+</body>
+</html>
