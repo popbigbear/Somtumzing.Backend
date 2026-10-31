@@ -15,6 +15,11 @@ public sealed class AccessTokenService(byte[] signingKey, string issuer, string 
         {
             new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString("D")),
             new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString("D")),
+            new Claim("name", user.UserName ?? user.Id.ToString("D")),
+            new Claim(
+                "sst",
+                user.SecurityStamp
+                    ?? throw new InvalidOperationException("Player security stamp is not initialized.")),
             new Claim("role", "Player")
         };
         var credentials = new SigningCredentials(

@@ -1,0 +1,107 @@
+@page
+@model Somtumzing.Backend.Api.Pages.Admin.Logs.IndexModel
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Audit logs - Somtumzing Back Office</title>
+</head>
+<body>
+    <main>
+        <nav>
+            <a asp-page="/Admin/Index">Back office</a>
+        </nav>
+        <h1>Audit logs</h1>
+        <form method="get">
+            <div asp-validation-summary="All" role="alert"></div>
+            <label asp-for="EventType">Event type</label>
+            <select asp-for="EventType">
+                <option value="">All event types</option>
+                @foreach (var eventType in Model.EventTypes)
+                {
+                    <option value="@eventType">@eventType</option>
+                }
+            </select>
+            <label asp-for="Severity">Severity</label>
+            <select asp-for="Severity">
+                <option value="">All severities</option>
+                <option>Trace</option>
+                <option>Debug</option>
+                <option>Information</option>
+                <option>Warning</option>
+                <option>Error</option>
+                <option>Critical</option>
+            </select>
+            <label asp-for="From">From (UTC)</label>
+            <input asp-for="From" type="date" />
+            <label asp-for="To">To (UTC)</label>
+            <input asp-for="To" type="date" />
+            <label asp-for="IpAddress">IP address</label>
+            <input asp-for="IpAddress" />
+            <label asp-for="Username">Username</label>
+            <input asp-for="Username" />
+            <button type="submit">Filter</button>
+            <a asp-page="/Admin/Logs/Index">Clear</a>
+        </form>
+
+        <p>@Model.TotalCount matching event(s). Page @Model.CurrentPage of @Model.TotalPages.</p>
+        <table>
+            <thead>
+                <tr>
+                    <th scope="col">Time (UTC)</th>
+                    <th scope="col">Event</th>
+                    <th scope="col">Severity</th>
+                    <th scope="col">Outcome</th>
+                    <th scope="col">Username</th>
+                    <th scope="col">IP address</th>
+                    <th scope="col">Target</th>
+                    <th scope="col">Request ID</th>
+                    <th scope="col">Details</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var entry in Model.Entries)
+                {
+                    <tr>
+                        <td>@entry.OccurredAtUtc.ToString("yyyy-MM-dd HH:mm:ss.fff")</td>
+                        <td>@entry.EventType</td>
+                        <td>@entry.Severity</td>
+                        <td>@entry.Outcome</td>
+                        <td>@entry.ActorUsername</td>
+                        <td>@entry.IpAddress</td>
+                        <td>@entry.TargetType @entry.TargetId</td>
+                        <td>@entry.RequestId</td>
+                        <td><code>@entry.DetailsJson</code></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+
+        <nav aria-label="Audit log pages">
+            @if (Model.CurrentPage > 1)
+            {
+                <a asp-page="/Admin/Logs/Index"
+                   asp-route-eventType="@Model.EventType"
+                   asp-route-severity="@Model.Severity"
+                   asp-route-from="@(Model.From?.ToString("yyyy-MM-dd"))"
+                   asp-route-to="@(Model.To?.ToString("yyyy-MM-dd"))"
+                   asp-route-ipAddress="@Model.IpAddress"
+                   asp-route-username="@Model.Username"
+                   asp-route-pageNumber="@(Model.CurrentPage - 1)">Previous</a>
+            }
+            @if (Model.CurrentPage < Model.TotalPages)
+            {
+                <a asp-page="/Admin/Logs/Index"
+                   asp-route-eventType="@Model.EventType"
+                   asp-route-severity="@Model.Severity"
+                   asp-route-from="@(Model.From?.ToString("yyyy-MM-dd"))"
+                   asp-route-to="@(Model.To?.ToString("yyyy-MM-dd"))"
+                   asp-route-ipAddress="@Model.IpAddress"
+                   asp-route-username="@Model.Username"
+                   asp-route-pageNumber="@(Model.CurrentPage + 1)">Next</a>
+            }
+        </nav>
+    </main>
+</body>
+</html>

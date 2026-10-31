@@ -71,7 +71,18 @@ Severity filtering is configuration-driven:
 - Other environments: `Somtumzing.Backend` defaults to `Information`; framework categories default to `Warning`.
 - Override a category with configuration. For example, temporarily run `Set-Item Env:Logging__LogLevel__Somtumzing.Backend -Value Trace` before starting the API to enable detailed diagnostics. Trace logging can expose sensitive implementation data and should not remain enabled in production.
 
-The API currently emits operational/authentication events only. Durable game transaction ledgers and back-office audit records belong in domain tables written atomically with the corresponding business changes; they are not replaced by operational logs and will be introduced alongside those game/admin operations.
+Important authentication and back-office events are also stored in PostgreSQL and can be reviewed at `/Admin/Logs`. The page supports filtering by event type, severity, UTC date range, IP address, and username, with 50 results per page. Audit entries include outcomes, request IDs, and safe event details, but never credentials or tokens. The retention job deletes entries older than `AuditLogs:RetentionDays` (180 days by default), and runs at startup and every 24 hours.
+
+Administrators can search player accounts at `/Admin/Players`, filter by active/suspended status, and suspend or reactivate an account with a required reason. Each action is recorded as `AdminAction`. Player JWTs are checked against current suspension and security-stamp state, so previously issued access tokens stop working immediately. Refresh attempts are rejected while suspended; keeping refresh tokens allows the player to recover their guest account after reactivation without making the token usable during suspension.
+
+These audit records are distinct from operational stdout logs. A game transaction ledger is not fabricated from authentication events: it should be added with the game economy and written atomically with each balance-changing operation. When deploying behind a reverse proxy, configure trusted forwarded headers before relying on recorded client IP addresses.
+
+## Design documents
+
+- [SDS Use Cases](docs/SDS-Use-Cases.md) — system actors and functional workflows.
+- [SDS Architecture](docs/SDS-Architecture.md) — current/proposed architecture, components, deployment, and runtime sequences.
+- [API Specification](docs/API-Specification.md) — implemented endpoints and proposed API contracts.
+- [Database Design](docs/Database-Design.md) — relational model, shared columns, Code generation, and migration notes.
 
 ## Migrations
 

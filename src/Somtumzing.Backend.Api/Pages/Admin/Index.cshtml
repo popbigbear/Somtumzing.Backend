@@ -11,7 +11,11 @@
     <main>
         <h1>Somtumzing Back Office</h1>
         <p>Signed in as @User.Identity?.Name</p>
-        <p>Admin access is configured. Player-management tools can be added here.</p>
+        <p>Manage player accounts and review important system events.</p>
+        <nav>
+            <a asp-page="/Admin/Players/Index">Manage players</a>
+            <a asp-page="/Admin/Logs/Index">Audit logs</a>
+        </nav>
         <form method="post" asp-page-handler="SignOut">
             <button type="submit">Sign out</button>
         </form>

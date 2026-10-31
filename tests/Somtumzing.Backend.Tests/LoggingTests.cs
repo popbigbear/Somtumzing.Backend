@@ -1,3 +1,4 @@
+using System.Data.Common;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -37,13 +38,15 @@ public sealed class LoggingTests
         using var services = new ServiceCollection()
             .AddLogging()
             .AddProblemDetails()
+            .AddScoped<IAuditLogWriter, ThrowingAuditLogWriter>()
             .BuildServiceProvider();
         var problemDetails = services.GetRequiredService<IProblemDetailsService>();
         using var loggerProvider = new CapturingLoggerProvider();
         using var loggerFactory = LoggerFactory.Create(builder => builder.AddProvider(loggerProvider));
         var handler = new ApiExceptionHandler(
             loggerFactory.CreateLogger<ApiExceptionHandler>(),
-            problemDetails);
+            problemDetails,
+            services.GetRequiredService<IServiceScopeFactory>());
         var context = new DefaultHttpContext();
         context.Response.Body = new MemoryStream();
         context.TraceIdentifier = "trace-safe-test";
@@ -60,10 +63,13 @@ public sealed class LoggingTests
         Assert.Equal(StatusCodes.Status500InternalServerError, context.Response.StatusCode);
         Assert.Contains("trace-safe-test", responseBody, StringComparison.Ordinal);
         Assert.DoesNotContain("internal secret detail", responseBody, StringComparison.Ordinal);
-        var logEntry = Assert.Single(loggerProvider.Entries);
+        var logEntry = loggerProvider.Entries[0];
         Assert.Equal(LogLevel.Error, logEntry.Level);
         Assert.Equal("UnhandledException", logEntry.Values["EventType"]);
         Assert.Equal("trace-safe-test", logEntry.Values["RequestId"]);
+        Assert.Contains(loggerProvider.Entries, entry =>
+            entry.Values.TryGetValue("EventType", out var eventType)
+            && Equals(eventType, "AuditPersistenceFailure"));
     }
 
     private sealed class CapturingLoggerProvider : ILoggerProvider
@@ -102,4 +108,21 @@ public sealed class LoggingTests
         LogLevel Level,
         string Message,
         IReadOnlyDictionary<string, object?> Values);
+
+    private sealed class ThrowingAuditLogWriter : IAuditLogWriter
+    {
+        public Task WriteAsync(
+            string eventType,
+            string severity,
+            string outcome,
+            CancellationToken cancellationToken,
+            Guid? actorUserId = null,
+            string? actorUsername = null,
+            string? targetType = null,
+            string? targetId = null,
+            object? details = null) =>
+            throw new InvalidOperationException("database unavailable", new TestDbException());
+    }
+
+    private sealed class TestDbException() : DbException("database unavailable");
 }

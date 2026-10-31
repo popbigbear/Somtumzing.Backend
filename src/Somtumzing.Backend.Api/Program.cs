@@ -39,9 +39,18 @@ if (signingKey.Length < 32)
 
 var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "somtumzing-backend";
 var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "somtumzing-game";
+var auditRetentionDays = builder.Configuration.GetValue<int?>("AuditLogs:RetentionDays") ?? 180;
+if (auditRetentionDays < 1)
+{
+    throw new InvalidOperationException("AuditLogs:RetentionDays must be greater than zero.");
+}
 
 builder.Services.AddDbContext<GameDbContext>(options => options.UseNpgsql(connectionString));
-builder.Services.AddIdentity<ApplicationUser, IdentityRole<Guid>>(options =>
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddScoped<IAuditLogWriter, AuditLogWriter>();
+builder.Services.AddHostedService<AuditLogRetentionService>();
+builder.Services.AddIdentity<ApplicationUser, ApplicationRole>(options =>
     {
         options.Password.RequiredLength = 12;
         options.Password.RequireDigit = true;
@@ -77,6 +86,32 @@ builder.Services.AddAuthentication(options =>
     .AddJwtBearer(options =>
     {
         options.MapInboundClaims = false;
+        options.Events = new JwtBearerEvents
+        {
+            OnTokenValidated = async context =>
+            {
+                var subject = context.Principal?.FindFirst("sub")?.Value;
+                var securityStamp = context.Principal?.FindFirst("sst")?.Value;
+                if (!Guid.TryParse(subject, out var playerId)
+                    || string.IsNullOrWhiteSpace(securityStamp))
+                {
+                    context.Fail("The player token is invalid.");
+                    return;
+                }
+
+                var database = context.HttpContext.RequestServices.GetRequiredService<GameDbContext>();
+                var player = await database.Users
+                    .AsNoTracking()
+                    .Where(user => user.Id == playerId)
+                    .Select(user => new { user.IsSuspended, user.SecurityStamp })
+                    .SingleOrDefaultAsync(context.HttpContext.RequestAborted);
+
+                if (player is null || player.IsSuspended || player.SecurityStamp != securityStamp)
+                {
+                    context.Fail("The player account is suspended or the token has been revoked.");
+                }
+            }
+        };
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,
@@ -87,7 +122,7 @@ builder.Services.AddAuthentication(options =>
             IssuerSigningKey = new SymmetricSecurityKey(signingKey),
             ValidateLifetime = true,
             ClockSkew = TimeSpan.FromSeconds(30),
-            NameClaimType = "sub",
+            NameClaimType = "name",
             RoleClaimType = "role"
         };
     });
@@ -135,6 +170,7 @@ await using (var scope = app.Services.CreateAsyncScope())
     await DatabaseInitializer.InitializeAsync(scope.ServiceProvider, app.Configuration);
 }
 
+app.UseExceptionHandler();
 app.Use(async (context, next) =>
 {
     using var scope = app.Logger.BeginScope(new Dictionary<string, object>
@@ -144,7 +180,6 @@ app.Use(async (context, next) =>
     await next(context);
 });
 app.UseMiddleware<RequestLoggingMiddleware>();
-app.UseExceptionHandler();
 app.UseRouting();
 app.UseRateLimiter();
 app.UseAuthentication();

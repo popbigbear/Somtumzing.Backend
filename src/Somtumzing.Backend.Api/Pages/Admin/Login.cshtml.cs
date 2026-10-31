@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Somtumzing.Backend.Api.Models;
+using Somtumzing.Backend.Api.Services;
 
 namespace Somtumzing.Backend.Api.Pages.Admin;
 
@@ -11,6 +12,7 @@ namespace Somtumzing.Backend.Api.Pages.Admin;
 public sealed class LoginModel(
     SignInManager<ApplicationUser> signInManager,
     UserManager<ApplicationUser> userManager,
+    IAuditLogWriter auditLogWriter,
     ILogger<LoginModel> logger) : PageModel
 {
     private static readonly EventId AdminLoginSucceededEvent = new(1101, "AdminLoginSucceeded");
@@ -41,6 +43,13 @@ public sealed class LoginModel(
             lockoutOnFailure: true);
         if (!result.Succeeded)
         {
+            await auditLogWriter.WriteAsync(
+                "AdminLogin",
+                "Warning",
+                result.IsLockedOut ? "LockedOut" : "InvalidCredentials",
+                cancellationToken,
+                actorUsername: Input.Email,
+                targetType: "BackOffice");
             logger.LogWarning(
                 AdminLoginFailedEvent,
                 "Back-office sign-in failed. {EventType} {Outcome}",
@@ -62,6 +71,15 @@ public sealed class LoginModel(
             "AdminLogin",
             administrator.Id,
             "Succeeded");
+        await auditLogWriter.WriteAsync(
+            "AdminLogin",
+            "Information",
+            "Succeeded",
+            HttpContext.RequestAborted,
+            actorUserId: administrator.Id,
+            actorUsername: administrator.Email,
+            targetType: "BackOffice",
+            targetId: administrator.Id.ToString("D"));
 
         var destination = !string.IsNullOrWhiteSpace(ReturnUrl) && Url.IsLocalUrl(ReturnUrl)
             ? ReturnUrl

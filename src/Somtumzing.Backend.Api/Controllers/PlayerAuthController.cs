@@ -19,6 +19,7 @@ public sealed class PlayerAuthController(
     GameDbContext database,
     UserManager<ApplicationUser> userManager,
     AccessTokenService accessTokens,
+    IAuditLogWriter auditLogWriter,
     ILogger<PlayerAuthController> logger) : ControllerBase
 {
     private static readonly EventId PlayerLoginEvent = new(1001, "PlayerLogin");
@@ -47,7 +48,15 @@ public sealed class PlayerAuthController(
 
         var refresh = RefreshTokenFactory.Create(user.Id, now);
         database.RefreshTokens.Add(refresh.Entity);
-        await database.SaveChangesAsync(cancellationToken);
+        await auditLogWriter.WriteAsync(
+            "PlayerLogin",
+            "Information",
+            "GuestCreated",
+            cancellationToken,
+            actorUserId: user.Id,
+            actorUsername: user.UserName,
+            targetType: "Player",
+            targetId: user.Id.ToString("D"));
         await transaction.CommitAsync(cancellationToken);
         logger.LogInformation(
             PlayerLoginEvent,
@@ -79,6 +88,12 @@ public sealed class PlayerAuthController(
 
         if (token is null || token.RevokedAtUtc is not null || token.ExpiresAtUtc <= now)
         {
+            await auditLogWriter.WriteAsync(
+                "PlayerTokenRefreshRejected",
+                "Warning",
+                "InvalidOrExpired",
+                cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
             logger.LogWarning(
                 PlayerTokenRefreshRejectedEvent,
                 "Player refresh was rejected. {EventType} {Outcome}",
@@ -87,14 +102,44 @@ public sealed class PlayerAuthController(
             return Unauthorized();
         }
 
+        if (token.User.IsSuspended)
+        {
+            await auditLogWriter.WriteAsync(
+                "PlayerTokenRefreshRejected",
+                "Warning",
+                "AccountSuspended",
+                cancellationToken,
+                actorUserId: token.UserId,
+                actorUsername: token.User.UserName,
+                targetType: "Player",
+                targetId: token.UserId.ToString("D"));
+            await transaction.CommitAsync(cancellationToken);
+            logger.LogWarning(
+                PlayerTokenRefreshRejectedEvent,
+                "Player refresh was rejected. {EventType} {PlayerId} {Outcome}",
+                "PlayerTokenRefreshRejected",
+                token.UserId,
+                "AccountSuspended");
+            return Unauthorized();
+        }
+
         token.RevokedAtUtc = now;
+        token.Status = "REVOKED";
         var next = RefreshTokenFactory.Create(token.UserId, now);
         token.ReplacedByTokenId = next.Entity.Id;
         database.RefreshTokens.Add(next.Entity);
 
         try
         {
-            await database.SaveChangesAsync(cancellationToken);
+            await auditLogWriter.WriteAsync(
+                "PlayerTokenRefresh",
+                "Information",
+                "Succeeded",
+                cancellationToken,
+                actorUserId: token.UserId,
+                actorUsername: token.User.UserName,
+                targetType: "Player",
+                targetId: token.UserId.ToString("D"));
             await transaction.CommitAsync(cancellationToken);
         }
         catch (DbUpdateConcurrencyException)
@@ -144,9 +189,18 @@ public sealed class PlayerAuthController(
         }
 
         token.RevokedAtUtc = DateTimeOffset.UtcNow;
+        token.Status = "REVOKED";
         try
         {
-            await database.SaveChangesAsync(cancellationToken);
+            await auditLogWriter.WriteAsync(
+                "PlayerLogout",
+                "Information",
+                "Succeeded",
+                cancellationToken,
+                actorUserId: userId,
+                actorUsername: User.Identity?.Name,
+                targetType: "Player",
+                targetId: userId.ToString("D"));
         }
         catch (DbUpdateConcurrencyException)
         {

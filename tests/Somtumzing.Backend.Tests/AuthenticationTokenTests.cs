@@ -12,7 +12,7 @@ public sealed class AuthenticationTokenTests
     public void AccessTokenContainsPlayerIdentityAndExpiresAfterFifteenMinutes()
     {
         var key = RandomNumberGenerator.GetBytes(32);
-        var user = new ApplicationUser { Id = Guid.NewGuid() };
+        var user = new ApplicationUser { Id = Guid.NewGuid(), SecurityStamp = "test-security-stamp" };
         var now = DateTimeOffset.UtcNow;
         var service = new AccessTokenService(key, "somtumzing-test", "somtumzing-game-test");
 
@@ -29,6 +29,7 @@ public sealed class AuthenticationTokenTests
         Assert.Equal("somtumzing-game-test", payload.RootElement.GetProperty("aud").GetString());
         Assert.Equal(user.Id.ToString("D"), payload.RootElement.GetProperty("sub").GetString());
         Assert.Equal("Player", payload.RootElement.GetProperty("role").GetString());
+        Assert.Equal(user.SecurityStamp, payload.RootElement.GetProperty("sst").GetString());
         Assert.Equal(
             now.AddMinutes(15).ToUnixTimeSeconds(),
             payload.RootElement.GetProperty("exp").GetInt64());

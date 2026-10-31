@@ -15,12 +15,12 @@ public static class DatabaseInitializer
                 "BackOffice:AdminEmail and BackOffice:AdminPassword must be configured together.");
         }
 
-        var roleManager = services.GetRequiredService<RoleManager<IdentityRole<Guid>>>();
+        var roleManager = services.GetRequiredService<RoleManager<ApplicationRole>>();
         foreach (var role in new[] { "Admin", "Player" })
         {
             if (!await roleManager.RoleExistsAsync(role))
             {
-                var result = await roleManager.CreateAsync(new IdentityRole<Guid>(role));
+                var result = await roleManager.CreateAsync(new ApplicationRole { Name = role });
                 EnsureSucceeded(result, $"creating the {role} role");
             }
         }
