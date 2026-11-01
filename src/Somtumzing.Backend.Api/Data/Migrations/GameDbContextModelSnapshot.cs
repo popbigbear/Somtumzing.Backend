@@ -309,10 +309,13 @@ namespace Somtumzing.Backend.Api.Data.Migrations
 
             modelBuilder.Entity("Somtumzing.Backend.Api.Models.ApplicationUserRole", b =>
                 {
-                    b.Property<Guid>("PK")
-                        .ValueGeneratedOnAdd()
+                    b.Property<Guid>("UserId")
                         .HasColumnType("uuid")
-                        .HasDefaultValueSql("gen_random_uuid()");
+                        .HasColumnName("UserPK");
+
+                    b.Property<Guid>("RoleId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("RolePK");
 
                     b.Property<string>("Code")
                         .IsRequired()
@@ -328,9 +331,10 @@ namespace Somtumzing.Backend.Api.Data.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
-                    b.Property<Guid>("RoleId")
+                    b.Property<Guid>("PK")
+                        .ValueGeneratedOnAdd()
                         .HasColumnType("uuid")
-                        .HasColumnName("RolePK");
+                        .HasDefaultValueSql("gen_random_uuid()");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -347,11 +351,9 @@ namespace Somtumzing.Backend.Api.Data.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("UserPK");
+                    b.HasKey("UserId", "RoleId");
 
-                    b.HasKey("PK");
+                    b.HasAlternateKey("PK");
 
                     b.HasIndex("Code")
                         .IsUnique();
@@ -361,9 +363,6 @@ namespace Somtumzing.Backend.Api.Data.Migrations
                     b.HasIndex("RoleId");
 
                     b.HasIndex("UpdatedBy");
-
-                    b.HasIndex("UserId", "RoleId")
-                        .IsUnique();
 
                     b.ToTable("AspNetUserRoles", null, t =>
                         {

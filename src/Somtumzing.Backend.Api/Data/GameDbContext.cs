@@ -101,13 +101,13 @@ public sealed class GameDbContext(DbContextOptions<GameDbContext> options)
         {
             entity.ToTable("AspNetUserRoles", table =>
                 table.HasCheckConstraint("CK_AspNetUserRoles_Status", "\"Status\" IN ('ACTIVE', 'REVOKED')"));
-            entity.HasKey(role => role.PK);
+            entity.HasKey(role => new { role.UserId, role.RoleId });
+            entity.HasAlternateKey(role => role.PK);
             entity.Property(role => role.PK).HasDefaultValueSql("gen_random_uuid()");
             entity.Property(role => role.UserId).HasColumnName("UserPK");
             entity.Property(role => role.RoleId).HasColumnName("RolePK");
             entity.Property(role => role.Code).HasMaxLength(40).IsRequired().ValueGeneratedOnAdd();
             entity.HasIndex(role => role.Code).IsUnique();
-            entity.HasIndex(role => new { role.UserId, role.RoleId }).IsUnique();
             entity.Property(role => role.CreatedDate).HasDefaultValueSql("CURRENT_TIMESTAMP");
             entity.Property(role => role.UpdatedDate).HasDefaultValueSql("CURRENT_TIMESTAMP");
             entity.Property(role => role.Status).HasMaxLength(24).HasDefaultValue("ACTIVE").IsRequired();
