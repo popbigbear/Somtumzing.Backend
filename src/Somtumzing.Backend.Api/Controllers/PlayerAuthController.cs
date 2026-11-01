@@ -73,6 +73,66 @@ public sealed class PlayerAuthController(
             refresh.Entity.ExpiresAtUtc));
     }
 
+    // ==========================================
+    // Guest Login Endpoint
+    // ==========================================
+    [HttpPost("guestold")]
+    [EnableRateLimiting("guest-bootstrap")]
+    public async Task<ActionResult<GuestAuthResponse>> GuestLogin(
+        [FromBody] GuestLoginRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (!ModelState.IsValid)
+        {
+            return ValidationProblem(ModelState);
+        }
+
+        var now = DateTimeOffset.UtcNow;
+        await using var transaction = await database.Database.BeginTransactionAsync(cancellationToken);
+        
+        var usernameBase = $"guest-{request.Platform}-{Guid.NewGuid():N}";
+        var user = new ApplicationUser
+        {
+            Id = Guid.NewGuid(),
+            UserName = usernameBase.Substring(0, Math.Min(50, usernameBase.Length)),
+            CreatedAtUtc = now
+        };
+        
+        var password = WebEncoders.Base64UrlEncode(RandomNumberGenerator.GetBytes(48)) + "aA1!";
+        var createResult = await userManager.CreateAsync(user, password);
+        EnsureSucceeded(createResult, "creating a guest player");
+
+        var roleResult = await userManager.AddToRoleAsync(user, "Player");
+        EnsureSucceeded(roleResult, "assigning the player role");
+
+        var accessToken = accessTokens.CreatePlayerToken(user, now);
+        
+        await auditLogWriter.WriteAsync(
+            "PlayerLogin",
+            "Information",
+            "GuestCreated",
+            cancellationToken,
+            actorUserId: user.Id,
+            actorUsername: user.UserName,
+            targetType: "Player",
+            targetId: user.Id.ToString("D"));
+            
+        await transaction.CommitAsync(cancellationToken);
+        
+        logger.LogInformation(
+            PlayerLoginEvent,
+            "Guest player authenticated successfully. {EventType} {PlayerId} {Platform} {DeviceId}",
+            "PlayerLogin",
+            user.Id,
+            request.Platform,
+            request.DeviceId);
+
+        return Ok(new GuestAuthResponse(
+            accessToken,
+            new PlayerResponse(user.Id, user.UserName ?? user.Id.ToString("D"), user.CreatedAtUtc)));
+    }
+
+
     [HttpPost("refresh")]
     public async Task<ActionResult<AuthSessionResponse>> Refresh(
         [FromBody] RefreshRequest request,
@@ -260,6 +320,23 @@ public sealed class PlayerAuthController(
         DateTimeOffset RefreshTokenExpiresAtUtc);
 
     public sealed record PlayerProfileResponse(Guid PlayerId, DateTimeOffset CreatedAtUtc);
+
+    public sealed record GuestLoginRequest(
+        [Required]
+        [StringLength(128, MinimumLength = 8)]
+        string DeviceId,
+        [Required]
+        [RegularExpression("^(web|ios|android)$", ErrorMessage = "Platform must be 'web', 'ios', or 'android'.")]
+        string Platform);
+
+    public sealed record GuestAuthResponse(
+        string Token,
+        PlayerResponse Player);
+
+    public sealed record PlayerResponse(
+        Guid Id,
+        string Username,
+        DateTimeOffset CreatedAtUtc);
 
     public sealed class RefreshRequest
     {
