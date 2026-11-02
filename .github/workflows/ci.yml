@@ -1,0 +1,55 @@
+name: .NET CI with Unit Tests
+
+on:
+  push:
+    branches: [ main, develop, master ]
+  pull_request:
+    branches: [ main, develop, master ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        dotnet-version: ['8.0.x'] # สามารถเพิ่ม '9.0.x' ได้หากต้องการทดสอบหลายเวอร์ชัน
+
+    steps:
+      # 1. ดึง Source Code จาก Repository ลงมาที่ Runner
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 2. ติดตั้ง .NET SDK
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ matrix.dotnet-version }}
+
+      # 3. ตั้งค่า Caching สำหรับ NuGet Packages (ช่วยลดเวลา Restore ในรอบถัดไป)
+      - name: Restore Dependencies (Cached)
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj', '**/*.sln') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      # 4. Restore Dependencies ของโปรเจกต์ทั้งหมด
+      - name: Restore dependencies
+        run: dotnet restore
+
+      # 5. Build โค้ดเพื่อเช็คว่าไม่มี Error ทางไวยากรณ์
+      - name: Build project
+        run: dotnet build --no-restore --configuration Release
+
+      # 6. สั่งรัน Unit Test พร้อมสร้างรายงานผลลัพธ์ (Test Reporting)
+      - name: Run unit tests with reports
+        run: |
+          dotnet test --no-build --configuration Release --verbosity normal --logger "trx;LogFileName=test_results.trx" --logger "junit;LogFileName=test_results.xml"
+
+      # 7. อัปโหลดผลลัพธ์การทดสอบขึ้น GitHub UI
+      - name: Upload Test Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-${{ matrix.dotnet-version }}
+          path: '**/TestResults/*.xml'
