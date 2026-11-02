@@ -95,4 +95,130 @@ public sealed class PlayerAuthControllerTests
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             _controller.GuestLogin(request, CancellationToken.None));
     }
+
+     [Fact]
+    public async Task UpdateDisplayName_ValidName_ReturnsOkWithUpdatedPlayer()
+    {
+        // Arrange: เตรียมข้อมูลผู้เล่นเดิมใน In-Memory DB
+        await using var database = CreateInMemoryDatabase();
+        var userId = Guid.NewGuid();
+        var user = new ApplicationUser
+        {
+            Id = userId,
+            UserName = "old-name",
+            CreatedAtUtc = DateTimeOffset.UtcNow,
+            IsSuspended = false
+        };
+        database.Users.Add(user);
+        await database.SaveChangesAsync();
+
+        var controller = CreateController(database);
+        SetupControllerUser(controller, userId);
+
+        var request = new PlayerAuthController.UpdateDisplayNameRequest("SomtumMaster");
+
+        // Act: เรียกใช้งาน PATCH /me
+        var result = await controller.UpdateDisplayName(request, CancellationToken.None);
+
+        // Assert: ตรวจสอบผลลัพธ์เป็น 200 OK และชื่อเปลี่ยนเป็น "SomtumMaster"
+        var okResult = Assert.IsType<OkObjectResult>(result.Result);
+        var response = Assert.IsType<PlayerAuthController.PlayerResponse>(okResult.Value);
+
+        Assert.Equal(userId, response.Id);
+        Assert.Equal("SomtumMaster", response.Username);
+    }
+
+    [Fact]
+    public async Task UpdateDisplayName_SuspendedPlayer_ReturnsForbidden()
+    {
+        // Arrange: ผู้เล่นถูกระงับบัญชี (IsSuspended = true)
+        await using var database = CreateInMemoryDatabase();
+        var userId = Guid.NewGuid();
+        var user = new ApplicationUser
+        {
+            Id = userId,
+            UserName = "banned-player",
+            CreatedAtUtc = DateTimeOffset.UtcNow,
+            IsSuspended = true
+        };
+        database.Users.Add(user);
+        await database.SaveChangesAsync();
+
+        var controller = CreateController(database);
+        SetupControllerUser(controller, userId);
+
+        var request = new PlayerAuthController.UpdateDisplayNameRequest("NewName");
+
+        // Act: เรียกใช้งาน PATCH /me
+        var result = await controller.UpdateDisplayName(request, CancellationToken.None);
+
+        // Assert: ตรวจสอบว่าได้ 403 Forbidden
+        var objectResult = Assert.IsType<ObjectResult>(result.Result);
+        Assert.Equal(StatusCodes.Status403Forbidden, objectResult.StatusCode);
+    }
+
+    [Fact]
+    public async Task UpdateDisplayName_NameTooShort_ReturnsValidationProblem()
+    {
+        // Arrange: ชื่อสั้นเกินไป (น้อยกว่า 2 ตัวอักษร)
+        await using var database = CreateInMemoryDatabase();
+        var userId = Guid.NewGuid();
+        database.Users.Add(new ApplicationUser { Id = userId, UserName = "valid" });
+        await database.SaveChangesAsync();
+
+        var controller = CreateController(database);
+        SetupControllerUser(controller, userId);
+
+        var request = new PlayerAuthController.UpdateDisplayNameRequest("A");
+
+        // Act: เรียกใช้งาน
+        var result = await controller.UpdateDisplayName(request, CancellationToken.None);
+
+        // Assert: ตรวจสอบว่าได้ Validation Problem (BadRequest / 400)
+        Assert.IsType<ObjectResult>(result.Result);
+        Assert.True(controller.ModelState.ContainsKey("DisplayName"));
+    }
+
+    private static GameDbContext CreateInMemoryDatabase()
+    {
+        var options = new DbContextOptionsBuilder<GameDbContext>()
+            .UseInMemoryDatabase(databaseName: $"AuthDb_{Guid.NewGuid():N}")
+            .Options;
+        return new GameDbContext(options);
+    }
+
+    private static PlayerAuthController CreateController(GameDbContext database)
+    {
+        var userStore = new Mock<IUserStore<ApplicationUser>>();
+        var userManager = new Mock<UserManager<ApplicationUser>>(userStore.Object, null, null, null, null, null, null, null, null);
+        
+        userManager.Setup(um => um.UpdateAsync(It.IsAny<ApplicationUser>()))
+                   .ReturnsAsync(IdentityResult.Success);
+
+        var accessTokenService = new Mock<AccessTokenService>(new byte[32], "issuer", "audience");
+        var auditLogWriter = new Mock<IAuditLogWriter>();
+        var logger = new Mock<ILogger<PlayerAuthController>>();
+
+        return new PlayerAuthController(
+            database,
+            userManager.Object,
+            accessTokenService.Object,
+            auditLogWriter.Object,
+            logger.Object);
+    }
+
+    private static void SetupControllerUser(ControllerBase controller, Guid userId)
+    {
+        var claims = new[]
+        {
+            new Claim(ClaimTypes.NameIdentifier, userId.ToString("D")),
+            new Claim("sub", userId.ToString("D")),
+            new Claim("role", "Player")
+        };
+        var identity = new ClaimsIdentity(claims, "TestAuth");
+        controller.ControllerContext = new ControllerContext
+        {
+            HttpContext = new DefaultHttpContext { User = new ClaimsPrincipal(identity) }
+        };
+    }
 }
