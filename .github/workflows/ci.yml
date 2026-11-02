@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        dotnet-version: ['10.0.x'] # ปรับให้ตรงกับ TargetFramework net10.0 ในโปรเจกต์
+        dotnet-version: ['10.0.x']
 
     steps:
       - name: Checkout code
@@ -30,20 +30,18 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-nuget-
 
-      # หากไม่มีไฟล์ .sln ที่ Root ให้สั่ง restore จากโฟลเดอร์ Test หรือใช้คำสั่ง dotnet restore เฉยๆ ได้เลย
       - name: Restore dependencies
         run: dotnet restore tests/Somtumzing.Backend.Tests/Somtumzing.Backend.Tests.csproj
 
       - name: Build project
         run: dotnet build tests/Somtumzing.Backend.Tests/Somtumzing.Backend.Tests.csproj --no-restore --configuration Release
 
-      - name: Run unit tests with reports
-        run: |
-          dotnet test tests/Somtumzing.Backend.Tests/Somtumzing.Backend.Tests.csproj --no-build --configuration Release --verbosity normal --logger "trx;LogFileName=test_results.trx" --logger "junit;LogFileName=test_results.xml"
+      - name: Run unit tests
+        run: dotnet test tests/Somtumzing.Backend.Tests/Somtumzing.Backend.Tests.csproj --no-build --configuration Release --verbosity normal --logger "trx;LogFileName=test_results.trx"
 
       - name: Upload Test Results
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: test-results-${{ matrix.dotnet-version }}
-          path: '**/TestResults/*.xml'
+          path: '**/TestResults/*.trx'
