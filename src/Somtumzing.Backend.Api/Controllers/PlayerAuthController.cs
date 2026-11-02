@@ -282,12 +282,73 @@ public sealed class PlayerAuthController(
         return NoContent();
     }
 
+     [Authorize(Roles = "Player")]
+    [HttpPatch("me")]
+    public async Task<ActionResult<PlayerResponse>> UpdateDisplayName(
+        [FromBody] UpdateDisplayNameRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (!ModelState.IsValid)
+        {
+            return ValidationProblem(ModelState);
+        }
+
+        var subject = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
+        if (string.IsNullOrWhiteSpace(subject) || !Guid.TryParse(subject, out var userId))
+        {
+            return Unauthorized();
+        }
+
+        var trimmedName = request.DisplayName.Trim();
+        if (trimmedName.Length < 2)
+        {
+            ModelState.AddModelError(nameof(request.DisplayName), "Display name must be at least 2 characters.");
+            return ValidationProblem(ModelState);
+        }
+
+        var user = await database.Users.SingleOrDefaultAsync(u => u.Id == userId, cancellationToken);
+        if (user is null)
+        {
+            return Unauthorized();
+        }
+
+        if (user.IsSuspended)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { message = "Account is suspended." });
+        }
+
+        user.UserName = trimmedName;
+        var updateResult = await userManager.UpdateAsync(user);
+        if (!updateResult.Succeeded)
+        {
+            foreach (var error in updateResult.Errors)
+            {
+                ModelState.AddModelError(string.Empty, error.Description);
+            }
+            return ValidationProblem(ModelState);
+        }
+
+        await auditLogWriter.WriteAsync(
+            "PlayerProfileUpdated",
+            "Information",
+            "DisplayNameChanged",
+            cancellationToken,
+            actorUserId: user.Id,
+            actorUsername: user.UserName,
+            targetType: "Player",
+            targetId: user.Id.ToString("D"));
+
+        logger.LogInformation("Player {PlayerId} updated display name to {DisplayName}", user.Id, trimmedName);
+
+        return Ok(new PlayerResponse(user.Id, user.UserName, user.CreatedAtUtc));
+    }
+
     [Authorize(Roles = "Player")]
     [HttpGet("me")]
-    public async Task<ActionResult<PlayerProfileResponse>> GetProfile(CancellationToken cancellationToken)
+    public async Task<ActionResult<PlayerResponse>> GetProfile(CancellationToken cancellationToken)
     {
-        var subject = User.FindFirstValue("sub");
-        if (!Guid.TryParse(subject, out var userId))
+        var subject = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
+        if (string.IsNullOrWhiteSpace(subject) || !Guid.TryParse(subject, out var userId))
         {
             return Unauthorized();
         }
@@ -300,7 +361,12 @@ public sealed class PlayerAuthController(
             return Unauthorized();
         }
 
-        return Ok(new PlayerProfileResponse(user.Id, user.CreatedAtUtc));
+        if (user.IsSuspended)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { message = "Account is suspended." });
+        }
+
+        return Ok(new PlayerResponse(user.Id, user.UserName ?? user.Id.ToString("D"), user.CreatedAtUtc));
     }
 
     private static void EnsureSucceeded(IdentityResult result, string operation)
@@ -337,6 +403,11 @@ public sealed class PlayerAuthController(
         Guid Id,
         string Username,
         DateTimeOffset CreatedAtUtc);
+
+    public sealed record UpdateDisplayNameRequest(
+    [Required]
+    [StringLength(24, MinimumLength = 2, ErrorMessage = "Display name must be between 2 and 24 characters.")]
+    string DisplayName);
 
     public sealed class RefreshRequest
     {
