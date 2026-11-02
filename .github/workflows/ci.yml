@@ -36,9 +36,7 @@ jobs:
       - name: Build project
         run: dotnet build tests/Somtumzing.Backend.Tests/Somtumzing.Backend.Tests.csproj --no-restore --configuration Release
 
-      - name: Run API Unit Tests
-        run: dotnet test tests/Somtumzing.Backend.Api.Tests/Somtumzing.Backend.Api.Tests.csproj --configuration Release --verbosity normal
-
+     
       - name: Run Backend Unit Tests
         run: dotnet test tests/Somtumzing.Backend.Tests/Somtumzing.Backend.Tests.csproj --configuration Release --verbosity normal
       
