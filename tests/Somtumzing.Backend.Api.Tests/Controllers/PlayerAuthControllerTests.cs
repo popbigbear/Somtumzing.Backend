@@ -221,4 +221,77 @@ public sealed class PlayerAuthControllerTests
             HttpContext = new DefaultHttpContext { User = new ClaimsPrincipal(identity) }
         };
     }
+
+     [Fact]
+    public async Task GetProfile_ValidPlayer_ReturnsOkWithPlayerResponse()
+    {
+        // Arrange: เตรียมข้อมูลผู้เล่นปกติใน In-Memory DB
+        await using var database = CreateInMemoryDatabase();
+        var userId = Guid.NewGuid();
+        var user = new ApplicationUser
+        {
+            Id = userId,
+            UserName = "somtum-gamer",
+            CreatedAtUtc = DateTimeOffset.UtcNow,
+            IsSuspended = false
+        };
+        database.Users.Add(user);
+        await database.SaveChangesAsync();
+
+        var controller = CreateController(database);
+        SetupControllerUser(controller, userId);
+
+        // Act: เรียกใช้งาน GET /me (GetProfile)
+        var result = await controller.GetProfile(CancellationToken.None);
+
+        // Assert: ตรวจสอบผลลัพธ์เป็น 200 OK และได้ข้อมูล PlayerResponse ครบถ้วน
+        var okResult = Assert.IsType<OkObjectResult>(result.Result);
+        var response = Assert.IsType<PlayerAuthController.PlayerResponse>(okResult.Value);
+
+        Assert.Equal(userId, response.Id);
+        Assert.Equal("somtum-gamer", response.Username);
+        Assert.Equal(user.CreatedAtUtc, response.CreatedAtUtc);
+    }
+
+    [Fact]
+    public async Task GetProfile_SuspendedPlayer_ReturnsForbidden()
+    {
+        // Arrange: ผู้เล่นถูกระงับบัญชี (IsSuspended = true)
+        await using var database = CreateInMemoryDatabase();
+        var userId = Guid.NewGuid();
+        var user = new ApplicationUser
+        {
+            Id = userId,
+            UserName = "banned-gamer",
+            CreatedAtUtc = DateTimeOffset.UtcNow,
+            IsSuspended = true
+        };
+        database.Users.Add(user);
+        await database.SaveChangesAsync();
+
+        var controller = CreateController(database);
+        SetupControllerUser(controller, userId);
+
+        // Act: เรียกใช้งาน GET /me
+        var result = await controller.GetProfile(CancellationToken.None);
+
+        // Assert: ตรวจสอบว่าได้ 403 Forbidden
+        var objectResult = Assert.IsType<ObjectResult>(result.Result);
+        Assert.Equal(StatusCodes.Status403Forbidden, objectResult.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetProfile_UserNotFound_ReturnsUnauthorized()
+    {
+        // Arrange: มี Claim แต่ไม่พบ User ในฐานข้อมูล
+        await using var database = CreateInMemoryDatabase();
+        var controller = CreateController(database);
+        SetupControllerUser(controller, Guid.NewGuid());
+
+        // Act: เรียกใช้งาน GET /me
+        var result = await controller.GetProfile(CancellationToken.None);
+
+        // Assert: ตรวจสอบว่าได้ 401 Unauthorized
+        Assert.IsType<UnauthorizedResult>(result.Result);
+    }
 }
