@@ -18,7 +18,7 @@ namespace Somtumzing.Backend.Tests.Controllers;
 
 public sealed class PlayerAuthControllerTests
 {
-    private readonly Mock<GameDbContext> _databaseMock;
+    private readonly GameDbContext _database;
     private readonly Mock<UserManager<ApplicationUser>> _userManagerMock;
     private readonly Mock<AccessTokenService> _accessTokenServiceMock;
     private readonly Mock<IAuditLogWriter> _auditLogWriterMock;
@@ -27,7 +27,10 @@ public sealed class PlayerAuthControllerTests
 
     public PlayerAuthControllerTests()
     {
-        _databaseMock = new Mock<GameDbContext>(new Microsoft.EntityFrameworkCore.DbContextOptions<GameDbContext>());
+        var options = new DbContextOptionsBuilder<GameDbContext>()
+            .UseInMemoryDatabase(databaseName: $"PlayerAuthTestDb_{Guid.NewGuid():N}")
+            .Options;
+        _database = new GameDbContext(options);
         
         var userStoreMock = new Mock<IUserStore<ApplicationUser>>();
         _userManagerMock = new Mock<UserManager<ApplicationUser>>(userStoreMock.Object, null, null, null, null, null, null, null, null);
@@ -37,7 +40,7 @@ public sealed class PlayerAuthControllerTests
         _loggerMock = new Mock<ILogger<PlayerAuthController>>();
 
         _controller = new PlayerAuthController(
-            _databaseMock.Object,
+            _database,
             _userManagerMock.Object,
             _accessTokenServiceMock.Object,
             _auditLogWriterMock.Object,
