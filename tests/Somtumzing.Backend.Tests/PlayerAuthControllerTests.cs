@@ -39,6 +39,7 @@ public sealed class PlayerAuthControllerTests
     {
         var options = new DbContextOptionsBuilder<GameDbContext>()
             .UseInMemoryDatabase(databaseName: $"PlayerAuthTestDb_{Guid.NewGuid():N}")
+            .ConfigureWarnings(x => x.Ignore(InMemoryEventId.TransactionIgnoredWarning))
             .Options;
         _database = new GameDbContext(options);
         
@@ -196,7 +197,7 @@ public sealed class PlayerAuthControllerTests
         Assert.IsType<ObjectResult>(result.Result);
         Assert.True(controller.ModelState.ContainsKey("DisplayName"));
     }
-    
+
     private static PlayerAuthController CreateController(GameDbContext database)
     {
         var userStore = new Mock<IUserStore<ApplicationUser>>();

@@ -33,13 +33,14 @@ jobs:
       - name: Restore dependencies
         run: dotnet restore tests/Somtumzing.Backend.Tests/Somtumzing.Backend.Tests.csproj
 
-      - name: Build project
-        run: dotnet build tests/Somtumzing.Backend.Tests/Somtumzing.Backend.Tests.csproj --no-restore --configuration Release
-
+      #- name: Build project
+      #  run: dotnet build tests/Somtumzing.Backend.Tests/Somtumzing.Backend.Tests.csproj --no-restore --configuration Release
+      #
      
-      - name: Run Backend Unit Tests
-        run: dotnet test tests/Somtumzing.Backend.Tests/Somtumzing.Backend.Tests.csproj --configuration Release --verbosity normal
-      
+      #- name: Run Backend Unit Tests
+      #  run: dotnet test tests/Somtumzing.Backend.Tests/Somtumzing.Backend.Tests.csproj --configuration Release --verbosity normal
+      #
+
       - name: Run unit tests
         run: dotnet test tests/Somtumzing.Backend.Tests/Somtumzing.Backend.Tests.csproj --no-build --configuration Release --verbosity normal --logger "trx;LogFileName=test_results.trx"
 
