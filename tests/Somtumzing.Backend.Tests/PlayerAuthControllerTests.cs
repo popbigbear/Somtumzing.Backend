@@ -20,7 +20,7 @@ public sealed class PlayerAuthControllerTests
 {
     private readonly GameDbContext _database;
     private readonly Mock<UserManager<ApplicationUser>> _userManagerMock;
-    private readonly AccessTokenService _accessTokenService; // ใช้ Instance จริงแทน Mock
+    private readonly AccessTokenService _accessTokenService;
     private readonly Mock<IAuditLogWriter> _auditLogWriterMock;
     private readonly Mock<ILogger<PlayerAuthController>> _loggerMock;
     private readonly PlayerAuthController _controller;
@@ -37,7 +37,7 @@ public sealed class PlayerAuthControllerTests
         
         // สร้าง Instance จริงของ AccessTokenService ด้วย Test Key ขนาด 32 ไบต์
         var testSigningKey = new byte[32];
-        System.Array.Fill(testSigningKey, (byte)1);
+        Array.Fill(testSigningKey, (byte)1);
         _accessTokenService = new AccessTokenService(testSigningKey, "test-issuer", "test-audience");
         
         _auditLogWriterMock = new Mock<IAuditLogWriter>();
@@ -46,7 +46,7 @@ public sealed class PlayerAuthControllerTests
         _controller = new PlayerAuthController(
             _database,
             _userManagerMock.Object,
-            _accessTokenService, // ส่ง instance จริงเข้าไป
+            _accessTokenService,
             _auditLogWriterMock.Object,
             _loggerMock.Object);
     }
@@ -64,10 +64,6 @@ public sealed class PlayerAuthControllerTests
         _userManagerMock
             .Setup(um => um.AddToRoleAsync(It.IsAny<ApplicationUser>(), "Player"))
             .ReturnsAsync(IdentityResult.Success);
-
-        _accessTokenServiceMock
-            .Setup(ts => ts.CreatePlayerToken(It.IsAny<ApplicationUser>(), It.IsAny<DateTimeOffset>()))
-            .Returns("mock-jwt-token");
 
         _auditLogWriterMock
             .Setup(al => al.WriteAsync(
@@ -88,7 +84,7 @@ public sealed class PlayerAuthControllerTests
         var okResult = Assert.IsType<OkObjectResult>(result.Result);
         var response = Assert.IsType<PlayerAuthController.GuestAuthResponse>(okResult.Value);
         
-        Assert.Equal("mock-jwt-token", response.Token);
+        Assert.False(string.IsNullOrWhiteSpace(response.Token));
         Assert.NotNull(response.Player);
         Assert.NotEmpty(response.Player.Username);
     }
@@ -207,14 +203,17 @@ public sealed class PlayerAuthControllerTests
         userManager.Setup(um => um.UpdateAsync(It.IsAny<ApplicationUser>()))
                    .ReturnsAsync(IdentityResult.Success);
 
-        var accessTokenService = new Mock<AccessTokenService>(new byte[32], "issuer", "audience");
+        var testSigningKey = new byte[32];
+        Array.Fill(testSigningKey, (byte)1);
+        var accessTokenService = new AccessTokenService(testSigningKey, "test-issuer", "test-audience");
+        
         var auditLogWriter = new Mock<IAuditLogWriter>();
         var logger = new Mock<ILogger<PlayerAuthController>>();
 
         return new PlayerAuthController(
             database,
             userManager.Object,
-            accessTokenService.Object,
+            accessTokenService,
             auditLogWriter.Object,
             logger.Object);
     }
