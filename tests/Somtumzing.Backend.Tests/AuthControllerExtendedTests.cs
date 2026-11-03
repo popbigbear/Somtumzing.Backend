@@ -13,11 +13,12 @@ using Somtumzing.Backend.Api.Services;
 using Xunit;
 
 namespace Somtumzing.Backend.Tests.Controllers;
+
 public sealed class AuthControllerExtendedTests
 {
     private readonly GameDbContext _database;
     private readonly Mock<UserManager<ApplicationUser>> _userManagerMock;
-    private readonly Mock<AccessTokenService> _accessTokenServiceMock;
+    private readonly AccessTokenService _accessTokenService;
     private readonly Mock<IAuditLogWriter> _auditLogWriterMock;
     private readonly Mock<ILogger<PlayerAuthController>> _loggerMock;
     private readonly PlayerAuthController _controller;
@@ -33,14 +34,18 @@ public sealed class AuthControllerExtendedTests
         var userStoreMock = new Mock<IUserStore<ApplicationUser>>();
         _userManagerMock = new Mock<UserManager<ApplicationUser>>(userStoreMock.Object, null, null, null, null, null, null, null, null);
         
-        _accessTokenServiceMock = new Mock<AccessTokenService>(new byte[32], "issuer", "audience");
+        // สร้าง Instance จริงของ AccessTokenService ด้วย Test Key ขนาด 32 ไบต์
+        var testSigningKey = new byte[32];
+        Array.Fill(testSigningKey, (byte)1);
+        _accessTokenService = new AccessTokenService(testSigningKey, "test-issuer", "test-audience");
+        
         _auditLogWriterMock = new Mock<IAuditLogWriter>();
         _loggerMock = new Mock<ILogger<PlayerAuthController>>();
 
         _controller = new PlayerAuthController(
             _database,
             _userManagerMock.Object,
-            _accessTokenServiceMock.Object,
+            _accessTokenService,
             _auditLogWriterMock.Object,
             _loggerMock.Object);
 
@@ -50,7 +55,10 @@ public sealed class AuthControllerExtendedTests
     [Fact]
     public void GetStatus_ReturnsOkWithStatus()
     {
+        // Act
         var result = _systemController.GetStatus();
+
+        // Assert
         var okResult = Assert.IsType<OkObjectResult>(result);
         Assert.NotNull(okResult.Value);
     }
@@ -58,6 +66,7 @@ public sealed class AuthControllerExtendedTests
     [Fact]
     public async Task GuestLogin_ValidRequest_ReturnsOkWithTokenAndPlayer()
     {
+        // Arrange
         var request = new PlayerAuthController.GuestLoginRequest("device-12345678", "web");
         
         _userManagerMock
@@ -68,14 +77,13 @@ public sealed class AuthControllerExtendedTests
             .Setup(um => um.AddToRoleAsync(It.IsAny<ApplicationUser>(), "Player"))
             .ReturnsAsync(IdentityResult.Success);
 
-        _accessTokenServiceMock
-            .Setup(ts => ts.CreatePlayerToken(It.IsAny<ApplicationUser>(), It.IsAny<DateTimeOffset>()))
-            .Returns("mock-token");
-
+        // Act
         var result = await _controller.GuestLogin(request, CancellationToken.None);
 
+        // Assert
         var okResult = Assert.IsType<OkObjectResult>(result.Result);
         var response = Assert.IsType<PlayerAuthController.GuestAuthResponse>(okResult.Value);
-        Assert.Equal("mock-token", response.Token);
+        Assert.False(string.IsNullOrWhiteSpace(response.Token));
+        Assert.NotNull(response.Player);
     }
 }

@@ -20,7 +20,7 @@ public sealed class PlayerAuthControllerTests
 {
     private readonly GameDbContext _database;
     private readonly Mock<UserManager<ApplicationUser>> _userManagerMock;
-    private readonly Mock<AccessTokenService> _accessTokenServiceMock;
+    private readonly AccessTokenService _accessTokenService; // ใช้ Instance จริงแทน Mock
     private readonly Mock<IAuditLogWriter> _auditLogWriterMock;
     private readonly Mock<ILogger<PlayerAuthController>> _loggerMock;
     private readonly PlayerAuthController _controller;
@@ -35,14 +35,18 @@ public sealed class PlayerAuthControllerTests
         var userStoreMock = new Mock<IUserStore<ApplicationUser>>();
         _userManagerMock = new Mock<UserManager<ApplicationUser>>(userStoreMock.Object, null, null, null, null, null, null, null, null);
         
-        _accessTokenServiceMock = new Mock<AccessTokenService>(new byte[32], "issuer", "audience");
+        // สร้าง Instance จริงของ AccessTokenService ด้วย Test Key ขนาด 32 ไบต์
+        var testSigningKey = new byte[32];
+        System.Array.Fill(testSigningKey, (byte)1);
+        _accessTokenService = new AccessTokenService(testSigningKey, "test-issuer", "test-audience");
+        
         _auditLogWriterMock = new Mock<IAuditLogWriter>();
         _loggerMock = new Mock<ILogger<PlayerAuthController>>();
 
         _controller = new PlayerAuthController(
             _database,
             _userManagerMock.Object,
-            _accessTokenServiceMock.Object,
+            _accessTokenService, // ส่ง instance จริงเข้าไป
             _auditLogWriterMock.Object,
             _loggerMock.Object);
     }
