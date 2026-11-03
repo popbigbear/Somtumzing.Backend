@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore; // <-- เพิ่ม using นี้เข้ามา
 using Moq;
 using Somtumzing.Backend.Api.Controllers;
 using Somtumzing.Backend.Api.Data;
