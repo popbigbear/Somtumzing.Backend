@@ -38,6 +38,7 @@ public sealed class AuthControllerExtendedTests
     {
         var options = new DbContextOptionsBuilder<GameDbContext>()
             .UseInMemoryDatabase(databaseName: $"AuthExtDb_{Guid.NewGuid():N}")
+            .ConfigureWarnings(x => x.Ignore(InMemoryEventId.TransactionIgnoredWarning)) // <-- เพิ่มบรรทัดนี้
             .Options;
         _database = new GameDbContext(options);
         
