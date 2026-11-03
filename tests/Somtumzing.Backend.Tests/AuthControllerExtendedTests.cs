@@ -1,4 +1,18 @@
-// ... existing code ...
+using System;
+using System.Threading;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
+using Microsoft.AspNetCore.Identity;
+using Moq;
+using Somtumzing.Backend.Api.Controllers;
+using Somtumzing.Backend.Api.Data;
+using Somtumzing.Backend.Api.Models;
+using Somtumzing.Backend.Api.Services;
+using Xunit;
+
+namespace Somtumzing.Backend.Tests.Controllers;
+
 public sealed class AuthControllerExtendedTests
 {
     private readonly Mock<GameDbContext> _databaseMock;
@@ -68,4 +82,3 @@ public sealed class AuthControllerExtendedTests
         Assert.Equal("mock-token", response.Token);
     }
 }
-// ... existing code ...

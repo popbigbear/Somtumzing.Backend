@@ -1,15 +1,20 @@
 using System;
+using System.Security.Claims;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
+using Microsoft.EntityFrameworkCore;
 using Moq;
 using Somtumzing.Backend.Api.Controllers;
 using Somtumzing.Backend.Api.Data;
 using Somtumzing.Backend.Api.Models;
 using Somtumzing.Backend.Api.Services;
 using Xunit;
+
+namespace Somtumzing.Backend.Tests.Controllers;
 
 public sealed class PlayerAuthControllerTests
 {
@@ -96,7 +101,7 @@ public sealed class PlayerAuthControllerTests
             _controller.GuestLogin(request, CancellationToken.None));
     }
 
-     [Fact]
+    [Fact]
     public async Task UpdateDisplayName_ValidName_ReturnsOkWithUpdatedPlayer()
     {
         // Arrange: เตรียมข้อมูลผู้เล่นเดิมใน In-Memory DB
@@ -222,7 +227,7 @@ public sealed class PlayerAuthControllerTests
         };
     }
 
-     [Fact]
+    [Fact]
     public async Task GetProfile_ValidPlayer_ReturnsOkWithPlayerResponse()
     {
         // Arrange: เตรียมข้อมูลผู้เล่นปกติใน In-Memory DB
