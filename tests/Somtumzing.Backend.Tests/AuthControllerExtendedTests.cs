@@ -11,6 +11,7 @@ using Somtumzing.Backend.Api.Data;
 using Somtumzing.Backend.Api.Models;
 using Somtumzing.Backend.Api.Services;
 using Xunit;
+using Microsoft.EntityFrameworkCore.Diagnostics; // <-- เพิ่ม namespace นี้
 
 namespace Somtumzing.Backend.Tests.Controllers;
 
@@ -23,6 +24,15 @@ public sealed class AuthControllerExtendedTests
     private readonly Mock<ILogger<PlayerAuthController>> _loggerMock;
     private readonly PlayerAuthController _controller;
     private readonly SystemController _systemController;
+
+    private static GameDbContext CreateInMemoryDatabase()
+    {
+        var options = new DbContextOptionsBuilder<GameDbContext>()
+            .UseInMemoryDatabase(databaseName: $"AuthDb_{Guid.NewGuid():N}")
+            .ConfigureWarnings(x => x.Ignore(InMemoryEventId.TransactionIgnoredWarning)) // <-- เพิ่มบรรทัดนี้เพื่อรองรับ Transaction บน In-Memory
+            .Options;
+        return new GameDbContext(options);
+    }
 
     public AuthControllerExtendedTests()
     {
