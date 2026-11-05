@@ -2,20 +2,19 @@
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 
-# คัดลอกไฟล์โปรเจกต์มาทำการ Restore แพ็กเกจ
+# คัดลอกไฟล์ .csproj มาเฉพาะโฟลเดอร์ที่จำเป็น
 COPY ["src/Somtamzing.Backend.Api/Somtamzing.Backend.Api.csproj", "src/Somtamzing.Backend.Api/"]
 RUN dotnet restore "src/Somtamzing.Backend.Api/Somtamzing.Backend.Api.csproj"
 
-# คัดลอกโค้ดทั้งหมดแล้วทำการ Publish
+# คัดลอกไฟล์ทั้งหมดและเข้าไป Publish ในโฟลเดอร์โปรเจกต์
 COPY . .
 WORKDIR "/src/src/Somtamzing.Backend.Api"
 RUN dotnet publish "Somtamzing.Backend.Api.csproj" -c Release -o /app/publish /p:UseAppHost=false
 
-# ใช้ .NET Runtime สำหรับรันแอพ (ขนาดเล็กและเบา)
+# ใช้ .NET Runtime สำหรับรันแอพ
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS final
 WORKDIR /app
 EXPOSE 8080
 COPY --from=build /app/publish .
 
-# กำหนดจุดเริ่มต้นรันโปรเจกต์ (เปลี่ยนชื่อ DLL ให้ตรงกับโปรเจกต์ของคุณ)
 ENTRYPOINT ["dotnet", "Somtamzing.Backend.Api.dll"]
