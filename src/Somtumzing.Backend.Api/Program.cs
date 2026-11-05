@@ -163,7 +163,23 @@ builder.Services.AddRateLimiter(options =>
             }));
 });
 
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+
+
 var app = builder.Build();
+
+app.UseSwagger();
+
+app.UseSwaggerUI(c =>
+
+{
+
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "Somtamzing API V1");
+
+    c.RoutePrefix = string.Empty; // ให้หน้าแรก (Root) เปิดหน้า Swagger ทันที
+
+});
 
 await using (var scope = app.Services.CreateAsyncScope())
 {
