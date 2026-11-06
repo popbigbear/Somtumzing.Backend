@@ -182,12 +182,25 @@ public sealed class PlayerAuthController(
         [FromBody] RefreshRequest request,
         CancellationToken cancellationToken)
     {
+        if (!ModelState.IsValid)
+        {
+            return ValidationProblem(new ValidationProblemDetails(ModelState)
+            {
+                Type = "https://tools.ietf.org/html/rfc7807",
+                Title = "Bad Request",
+                Status = StatusCodes.Status400BadRequest,
+                Detail = "Refresh token must be between 64 and 128 characters."
+            });
+        }
+
         var now = DateTimeOffset.UtcNow;
         await using var transaction = await database.Database.BeginTransactionAsync(cancellationToken);
+        
+        var tokenHash = RefreshTokenFactory.Hash(request.RefreshToken);
         var token = await database.RefreshTokens
             .Include(refreshToken => refreshToken.User)
             .SingleOrDefaultAsync(
-                refreshToken => refreshToken.TokenHash == RefreshTokenFactory.Hash(request.RefreshToken),
+                refreshToken => refreshToken.TokenHash == tokenHash,
                 cancellationToken);
 
         if (token is null || token.RevokedAtUtc is not null || token.ExpiresAtUtc <= now)
@@ -198,12 +211,21 @@ public sealed class PlayerAuthController(
                 "InvalidOrExpired",
                 cancellationToken);
             await transaction.CommitAsync(cancellationToken);
+            
             logger.LogWarning(
                 PlayerTokenRefreshRejectedEvent,
                 "Player refresh was rejected. {EventType} {Outcome}",
                 "PlayerTokenRefreshRejected",
                 "InvalidOrExpired");
-            return Unauthorized();
+
+            // ส่งคืน Error 401 ตามมาตรฐาน RFC 7807
+            return Unauthorized(new ProblemDetails
+            {
+                Type = "https://tools.ietf.org/html/rfc7807",
+                Title = "Unauthorized",
+                Status = StatusCodes.Status401Unauthorized,
+                Detail = "Refresh token is invalid, revoked, or expired. Please login again."
+            });
         }
 
         if (token.User.IsSuspended)
@@ -218,13 +240,22 @@ public sealed class PlayerAuthController(
                 targetType: "Player",
                 targetId: token.UserId.ToString("D"));
             await transaction.CommitAsync(cancellationToken);
+            
             logger.LogWarning(
                 PlayerTokenRefreshRejectedEvent,
                 "Player refresh was rejected. {EventType} {PlayerId} {Outcome}",
                 "PlayerTokenRefreshRejected",
                 token.UserId,
                 "AccountSuspended");
-            return Unauthorized();
+
+            // ส่งคืน Error 403 ตามมาตรฐาน RFC 7807
+            return StatusCode(StatusCodes.Status403Forbidden, new ProblemDetails
+            {
+                Type = "https://tools.ietf.org/html/rfc7807",
+                Title = "Forbidden",
+                Status = StatusCodes.Status403Forbidden,
+                Detail = "Account is suspended."
+            });
         }
 
         token.RevokedAtUtc = now;
@@ -254,7 +285,14 @@ public sealed class PlayerAuthController(
                 "Concurrent player refresh was rejected. {EventType} {Outcome}",
                 "PlayerTokenRefreshRejected",
                 "ConcurrentUse");
-            return Unauthorized();
+
+            return Conflict(new ProblemDetails
+            {
+                Type = "https://tools.ietf.org/html/rfc7807",
+                Title = "Conflict",
+                Status = StatusCodes.Status409Conflict,
+                Detail = "Concurrent refresh token usage detected."
+            });
         }
 
         logger.LogInformation(
