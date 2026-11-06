@@ -211,6 +211,26 @@ app.MapHealthChecks("/health/ready", new()
 app.MapControllers();
 app.MapRazorPages();
 
+// เพิ่มส่วนนี้ก่อน app.Run(); เพื่อให้รัน Database Migration อัตโนมัติเมื่อแอปเริ่มทำงาน
+using (var scope = app.Services.CreateScope())
+{
+    var services = scope.ServiceProvider;
+    try
+    {
+        var context = services.GetRequiredService<GameDbContext>();
+        // ทำการ Migrate ฐานข้อมูลอัตโนมัติ
+        await context.Database.MigrateAsync();
+        
+        // หรือถ้ามี Initializer ที่คุณใช้อยู่แล้ว
+        await DatabaseInitializer.InitializeAsync(services, app.Configuration);
+    }
+    catch (Exception ex)
+    {
+        var logger = services.GetRequiredService<ILogger<Program>>();
+        logger.LogError(ex, "An error occurred while migrating the database.");
+    }
+}
+
 app.Run();
 
 public partial class Program;
