@@ -27,7 +27,7 @@ public sealed class PlayerAuthController(
     private static readonly EventId PlayerLogoutEvent = new(1003, "PlayerLogout");
     private static readonly EventId PlayerTokenRefreshRejectedEvent = new(1004, "PlayerTokenRefreshRejected");
 
-    [HttpPost("guest")]
+    [HttpPost("createGuest")]
     [EnableRateLimiting("guest-bootstrap")]
     public async Task<ActionResult<AuthSessionResponse>> CreateGuest(CancellationToken cancellationToken)
     {
@@ -384,7 +384,16 @@ public sealed class PlayerAuthController(
 
         logger.LogInformation("Player {PlayerId} updated display name to {DisplayName}", user.Id, trimmedName);
 
-        return Ok(new PlayerResponse(user.Id, user.UserName, user.CreatedAtUtc));
+        // ส่งค่าพารามิเตอร์ครบถ้วนตามโครงสร้าง PlayerResponse ใหม่
+        return Ok(new PlayerResponse(
+            Id: $"p_{user.Id:N}".Substring(0, 12),
+            DisplayName: user.UserName,
+            Coins: 100,
+            BestScore: 0,
+            TotalServed: 0,
+            Upgrades: new Dictionary<string, int>(),
+            CreatedAt: user.CreatedAtUtc.ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
+        ));
     }
 
     [Authorize(Roles = "Player")]
@@ -410,7 +419,16 @@ public sealed class PlayerAuthController(
             return StatusCode(StatusCodes.Status403Forbidden, new { message = "Account is suspended." });
         }
 
-        return Ok(new PlayerResponse(user.Id, user.UserName ?? user.Id.ToString("D"), user.CreatedAtUtc));
+         // ส่งค่าพารามิเตอร์ครบถ้วนตามโครงสร้าง PlayerResponse ใหม่
+        return Ok(new PlayerResponse(
+            Id: $"p_{user.Id:N}".Substring(0, 12),
+            DisplayName: user.UserName ?? $"ร้านใหม่ #{user.Id.ToString("N").Substring(0, 4).ToUpper()}",
+            Coins: 100,
+            BestScore: 0,
+            TotalServed: 0,
+            Upgrades: new Dictionary<string, int>(),
+            CreatedAt: user.CreatedAtUtc.ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
+        ));
     }
 
     private static void EnsureSucceeded(IdentityResult result, string operation)
