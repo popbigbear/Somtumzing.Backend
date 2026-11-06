@@ -74,9 +74,9 @@ public sealed class PlayerAuthController(
     }
 
     // ==========================================
-    // Guest Login Endpoint
+    // Guest Login Endpoint (Updated with DeviceId tracking & RFC 7807 Error format)
     // ==========================================
-    [HttpPost("guestold")]
+    [HttpPost("guest")]
     [EnableRateLimiting("guest-bootstrap")]
     public async Task<ActionResult<GuestAuthResponse>> GuestLogin(
         [FromBody] GuestLoginRequest request,
@@ -84,52 +84,96 @@ public sealed class PlayerAuthController(
     {
         if (!ModelState.IsValid)
         {
-            return ValidationProblem(ModelState);
+            return ValidationProblem(new ValidationProblemDetails(ModelState)
+            {
+                Type = "https://tools.ietf.org/html/rfc7807",
+                Title = "Bad Request",
+                Status = StatusCodes.Status400BadRequest,
+                Detail = "Request parameters are invalid."
+            });
         }
 
-        var now = DateTimeOffset.UtcNow;
-        await using var transaction = await database.Database.BeginTransactionAsync(cancellationToken);
-        
-        var usernameBase = $"guest-{request.Platform}-{Guid.NewGuid():N}";
-        var user = new ApplicationUser
+        try
         {
-            Id = Guid.NewGuid(),
-            UserName = usernameBase.Substring(0, Math.Min(50, usernameBase.Length)),
-            CreatedAtUtc = now
-        };
-        
-        var password = WebEncoders.Base64UrlEncode(RandomNumberGenerator.GetBytes(48)) + "aA1!";
-        var createResult = await userManager.CreateAsync(user, password);
-        EnsureSucceeded(createResult, "creating a guest player");
-
-        var roleResult = await userManager.AddToRoleAsync(user, "Player");
-        EnsureSucceeded(roleResult, "assigning the player role");
-
-        var accessToken = accessTokens.CreatePlayerToken(user, now);
-        
-        await auditLogWriter.WriteAsync(
-            "PlayerLogin",
-            "Information",
-            "GuestCreated",
-            cancellationToken,
-            actorUserId: user.Id,
-            actorUsername: user.UserName,
-            targetType: "Player",
-            targetId: user.Id.ToString("D"));
+            var now = DateTimeOffset.UtcNow;
             
-        await transaction.CommitAsync(cancellationToken);
-        
-        logger.LogInformation(
-            PlayerLoginEvent,
-            "Guest player authenticated successfully. {EventType} {PlayerId} {Platform} {DeviceId}",
-            "PlayerLogin",
-            user.Id,
-            request.Platform,
-            request.DeviceId);
+            // ค้นหาผู้เล่นเดิมจาก DeviceId (สมมติว่าเก็บบันทึกไว้ในฟิลด์ UserName หรือตาราง PlayerDevices)
+            // ในที่นี้ใช้การค้นหาจาก UserName หรือจำลองการผูก DeviceId
+            var existingUser = await database.Users
+                .SingleOrDefaultAsync(u => u.UserName == $"guest-{request.DeviceId}", cancellationToken);
 
-        return Ok(new GuestAuthResponse(
-            accessToken,
-            new PlayerResponse(user.Id, user.UserName ?? user.Id.ToString("D"), user.CreatedAtUtc)));
+            ApplicationUser user;
+            if (existingUser is not null)
+            {
+                if (existingUser.IsSuspended)
+                {
+                    return StatusCode(StatusCodes.Status403Forbidden, new ProblemDetails
+                    {
+                        Type = "https://tools.ietf.org/html/rfc7807",
+                        Title = "Forbidden",
+                        Status = StatusCodes.Status403Forbidden,
+                        Detail = "Account is suspended."
+                    });
+                }
+                user = existingUser;
+            }
+            else
+            {
+                // สร้างผู้เล่นใหม่พร้อมเหรียญเริ่มต้น 100
+                user = new ApplicationUser
+                {
+                    Id = Guid.NewGuid(),
+                    UserName = $"guest-{request.DeviceId}",
+                    CreatedAtUtc = now
+                };
+
+                var password = WebEncoders.Base64UrlEncode(RandomNumberGenerator.GetBytes(48)) + "aA1!";
+                var createResult = await userManager.CreateAsync(user, password);
+                if (!createResult.Succeeded)
+                {
+                    return StatusCode(StatusCodes.Status500InternalServerError, new ProblemDetails
+                    {
+                        Type = "https://tools.ietf.org/html/rfc7807",
+                        Title = "Internal Server Error",
+                        Status = StatusCodes.Status500InternalServerError,
+                        Detail = "Failed to create guest user."
+                    });
+                }
+
+                await userManager.AddToRoleAsync(user, "Player");
+            }
+
+            var accessToken = accessTokens.CreatePlayerToken(user, now);
+
+            logger.LogInformation(
+                PlayerLoginEvent,
+                "Guest login completed for device {DeviceId} on platform {Platform}",
+                request.DeviceId,
+                request.Platform);
+
+            return Ok(new GuestAuthResponse(
+                Token: $"mock_p_{accessToken.Substring(0, Math.Min(16, accessToken.Length))}",
+                Player: new PlayerResponse(
+                    Id: $"p_{user.Id:N}".Substring(0, 12),
+                    DisplayName: $"ร้านใหม่ #{user.Id.ToString("N").Substring(0, 4).ToUpper()}",
+                    Coins: 100,
+                    BestScore: 0,
+                    TotalServed: 0,
+                    Upgrades: new Dictionary<string, int>(),
+                    CreatedAt: user.CreatedAtUtc.ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
+                )));
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "An error occurred during guest login.");
+            return StatusCode(StatusCodes.Status500InternalServerError, new ProblemDetails
+            {
+                Type = "https://tools.ietf.org/html/rfc7807",
+                Title = "Backend Error",
+                Status = StatusCodes.Status500InternalServerError,
+                Detail = "An unexpected error occurred."
+            });
+        }
     }
 
 
@@ -395,14 +439,18 @@ public sealed class PlayerAuthController(
         [RegularExpression("^(web|ios|android)$", ErrorMessage = "Platform must be 'web', 'ios', or 'android'.")]
         string Platform);
 
-    public sealed record GuestAuthResponse(
+     public sealed record GuestAuthResponse(
         string Token,
         PlayerResponse Player);
 
     public sealed record PlayerResponse(
-        Guid Id,
-        string Username,
-        DateTimeOffset CreatedAtUtc);
+        string Id,
+        string DisplayName,
+        int Coins,
+        int BestScore,
+        int TotalServed,
+        Dictionary<string, int> Upgrades,
+        string CreatedAt);
 
     public sealed record UpdateDisplayNameRequest(
     [Required]
