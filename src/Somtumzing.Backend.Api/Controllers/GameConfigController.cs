@@ -52,20 +52,26 @@ public sealed class GameConfigController(
         if (user.IsSuspended)
         {
             logger.LogWarning("Suspended player attempted to fetch game config: {PlayerId}", userId);
-            return StatusCode(StatusCodes.Status403Forbidden, new { message = "Account is suspended." });
+            return StatusCode(StatusCodes.Status403Forbidden, new ProblemDetails
+            {
+                Type = "https://tools.ietf.org/html/rfc7807",
+                Title = "Forbidden",
+                Status = StatusCodes.Status403Forbidden,
+                Detail = "Account is suspended."
+            });
         }
 
         // คืนค่า Game Configuration ที่สมบูรณ์พร้อมใช้งาน
-        var config = new GameConfigResponse(
+         var config = new GameConfigResponse(
             Version: "1.0.0",
-            MaxEnergy: 100,
+            MaxEnergy: 10,
             EnergyRegenSeconds: 300,
             DailyRewardEnabled: true,
             MaintenanceMode: false,
-            SupportedPlatforms: ["web", "ios", "android"],
-            ServerTimeUtc: DateTimeOffset.UtcNow);
+            SupportedPlatforms: ["web", "mobile"],
+            ServerTimeUtc: DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss") + "Z");
 
-        logger.LogInformation(
+         logger.LogInformation(
             ConfigLoadedEvent,
             "Game config loaded successfully for player {PlayerId}",
             userId);
@@ -83,5 +89,5 @@ public sealed class GameConfigController(
         bool DailyRewardEnabled,
         bool MaintenanceMode,
         string[] SupportedPlatforms,
-        DateTimeOffset ServerTimeUtc);
+        string ServerTimeUtc);
 }
