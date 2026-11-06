@@ -316,24 +316,46 @@ public sealed class PlayerAuthController(
         [FromBody] RefreshRequest request,
         CancellationToken cancellationToken)
     {
-        if (!Guid.TryParse(User.FindFirstValue("sub"), out var userId))
+        if (!ModelState.IsValid)
         {
-            return Unauthorized();
+            return ValidationProblem(new ValidationProblemDetails(ModelState)
+            {
+                Type = "https://tools.ietf.org/html/rfc7807",
+                Title = "Bad Request",
+                Status = StatusCodes.Status400BadRequest,
+                Detail = "Refresh token is required and must be valid."
+            });
+        }
+
+        var subject = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
+        if (string.IsNullOrWhiteSpace(subject) || !Guid.TryParse(subject, out var userId))
+        {
+            return Unauthorized(new ProblemDetails
+            {
+                Type = "https://tools.ietf.org/html/rfc7807",
+                Title = "Unauthorized",
+                Status = StatusCodes.Status401Unauthorized,
+                Detail = "Token is expired or invalid."
+            });
         }
 
         var hash = RefreshTokenFactory.Hash(request.RefreshToken);
         var token = await database.RefreshTokens.SingleOrDefaultAsync(
             refreshToken => refreshToken.TokenHash == hash && refreshToken.UserId == userId,
             cancellationToken);
+
         if (token is null || token.RevokedAtUtc is not null)
         {
-            return NoContent();
+            // หากไม่พบโทเค็นหรือถูกเพิกถอนไปแล้ว ให้ตอบกลับ 200 OK ตามหลัก Idempotency เพื่อความปลอดภัย
+            return Ok();
         }
 
         token.RevokedAtUtc = DateTimeOffset.UtcNow;
         token.Status = "REVOKED";
+
         try
         {
+            await database.SaveChangesAsync(cancellationToken);
             await auditLogWriter.WriteAsync(
                 "PlayerLogout",
                 "Information",
@@ -352,7 +374,7 @@ public sealed class PlayerAuthController(
                 "PlayerLogout",
                 userId,
                 "AlreadyRevoked");
-            return NoContent();
+            return Ok();
         }
 
         logger.LogInformation(
@@ -361,7 +383,8 @@ public sealed class PlayerAuthController(
             "PlayerLogout",
             userId,
             "Succeeded");
-        return NoContent();
+
+        return Ok();
     }
 
      [Authorize(Roles = "Player")]
@@ -434,39 +457,56 @@ public sealed class PlayerAuthController(
         ));
     }
 
-    [Authorize(Roles = "Player")]
+     [Authorize(Roles = "Player")]
     [HttpGet("me")]
-    public async Task<ActionResult<PlayerResponse>> GetProfile(CancellationToken cancellationToken)
+    public async Task<ActionResult<PlayerProfileResponse>> GetProfile(CancellationToken cancellationToken)
     {
+        // 1. ตรวจสอบและดึง User ID จาก Claims (รองรับทั้ง NameIdentifier และ sub)
         var subject = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
         if (string.IsNullOrWhiteSpace(subject) || !Guid.TryParse(subject, out var userId))
         {
-            return Unauthorized();
+            return Unauthorized(new ProblemDetails
+            {
+                Type = "https://tools.ietf.org/html/rfc7807",
+                Title = "Unauthorized",
+                Status = StatusCodes.Status401Unauthorized,
+                Detail = "Token is expired or invalid."
+            });
         }
 
+        // 2. ค้นหาข้อมูลผู้เล่นจากฐานข้อมูล
         var user = await database.Users
             .AsNoTracking()
             .SingleOrDefaultAsync(account => account.Id == userId, cancellationToken);
+
         if (user is null)
         {
-            return Unauthorized();
+            return Unauthorized(new ProblemDetails
+            {
+                Type = "https://tools.ietf.org/html/rfc7807",
+                Title = "Unauthorized",
+                Status = StatusCodes.Status401Unauthorized,
+                Detail = "Player not found."
+            });
         }
 
+        // 3. ตรวจสอบสถานะบัญชีถูกระงับ (Suspended)
         if (user.IsSuspended)
         {
-            return StatusCode(StatusCodes.Status403Forbidden, new { message = "Account is suspended." });
+            return StatusCode(StatusCodes.Status403Forbidden, new ProblemDetails
+            {
+                Type = "https://tools.ietf.org/html/rfc7807",
+                Title = "Forbidden",
+                Status = StatusCodes.Status403Forbidden,
+                Detail = "Account is suspended."
+            });
         }
 
-         // ส่งค่าพารามิเตอร์ครบถ้วนตามโครงสร้าง PlayerResponse ใหม่
-        return Ok(new PlayerResponse(
-            Id: $"p_{user.Id:N}".Substring(0, 12),
-            DisplayName: user.UserName ?? $"ร้านใหม่ #{user.Id.ToString("N").Substring(0, 4).ToUpper()}",
-            Coins: 100,
-            BestScore: 0,
-            TotalServed: 0,
-            Upgrades: new Dictionary<string, int>(),
-            CreatedAt: user.CreatedAtUtc.ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
-        ));
+        // 4. ส่งกลับข้อมูล PlayerProfileResponse ตามรูปแบบที่กำหนด
+        return Ok(new PlayerProfileResponse(
+            Id: user.Id,
+            Username: user.UserName,
+            CreatedAtUtc: user.CreatedAtUtc));
     }
 
     private static void EnsureSucceeded(IdentityResult result, string operation)
@@ -478,15 +518,17 @@ public sealed class PlayerAuthController(
         }
     }
 
-    public sealed record AuthSessionResponse(
+     public sealed record AuthSessionResponse(
         Guid PlayerId,
         string AccessToken,
         string RefreshToken,
         DateTimeOffset AccessTokenExpiresAtUtc,
         DateTimeOffset RefreshTokenExpiresAtUtc);
 
-    public sealed record PlayerProfileResponse(Guid PlayerId, DateTimeOffset CreatedAtUtc);
-
+    public sealed record PlayerProfileResponse(
+        Guid Id,
+        string? Username,
+        DateTimeOffset CreatedAtUtc);
     public sealed record GuestLoginRequest(
         [Required]
         [StringLength(128, MinimumLength = 8)]
