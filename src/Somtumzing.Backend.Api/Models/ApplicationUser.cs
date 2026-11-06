@@ -15,5 +15,9 @@ public sealed class ApplicationUser : IdentityUser<Guid>
     public DateTimeOffset? SuspendedAtUtc { get; set; }
     public Guid? SuspendedByAdminId { get; set; }
     public string? SuspensionReason { get; set; }
+    
+    // เพิ่มฟิลด์ DisplayName สำหรับแสดงผลในเกมโดยเฉพาะ (แยกจาก UserName)
+    public string? DisplayName { get; set; }
+
     public ICollection<RefreshToken> RefreshTokens { get; } = new List<RefreshToken>();
 }

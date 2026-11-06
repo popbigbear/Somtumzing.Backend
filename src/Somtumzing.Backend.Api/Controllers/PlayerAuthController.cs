@@ -97,8 +97,6 @@ public sealed class PlayerAuthController(
         {
             var now = DateTimeOffset.UtcNow;
             
-            // ค้นหาผู้เล่นเดิมจาก DeviceId (สมมติว่าเก็บบันทึกไว้ในฟิลด์ UserName หรือตาราง PlayerDevices)
-            // ในที่นี้ใช้การค้นหาจาก UserName หรือจำลองการผูก DeviceId
             var existingUser = await database.Users
                 .SingleOrDefaultAsync(u => u.UserName == $"guest-{request.DeviceId}", cancellationToken);
 
@@ -119,11 +117,12 @@ public sealed class PlayerAuthController(
             }
             else
             {
-                // สร้างผู้เล่นใหม่พร้อมเหรียญเริ่มต้น 100
+                var defaultDisplayName = $"ร้านใหม่ #{Guid.NewGuid():N}".Substring(0, 10).ToUpper();
                 user = new ApplicationUser
                 {
                     Id = Guid.NewGuid(),
                     UserName = $"guest-{request.DeviceId}",
+                    DisplayName = defaultDisplayName,
                     CreatedAtUtc = now
                 };
 
@@ -145,17 +144,12 @@ public sealed class PlayerAuthController(
 
             var accessToken = accessTokens.CreatePlayerToken(user, now);
 
-            logger.LogInformation(
-                PlayerLoginEvent,
-                "Guest login completed for device {DeviceId} on platform {Platform}",
-                request.DeviceId,
-                request.Platform);
-
             return Ok(new GuestAuthResponse(
                 Token: $"mock_p_{accessToken.Substring(0, Math.Min(16, accessToken.Length))}",
                 Player: new PlayerResponse(
                     Id: $"p_{user.Id:N}".Substring(0, 12),
-                    DisplayName: $"ร้านใหม่ #{user.Id.ToString("N").Substring(0, 4).ToUpper()}",
+                    Username: user.UserName,
+                    DisplayName: user.DisplayName ?? user.UserName,
                     Coins: 100,
                     BestScore: 0,
                     TotalServed: 0,
@@ -171,7 +165,7 @@ public sealed class PlayerAuthController(
                 Type = "https://tools.ietf.org/html/rfc7807",
                 Title = "Backend Error",
                 Status = StatusCodes.Status500InternalServerError,
-                Detail = "An unexpected error occurred."
+                Detail = ex.Message
             });
         }
     }
@@ -387,7 +381,7 @@ public sealed class PlayerAuthController(
         return Ok();
     }
 
-     [Authorize(Roles = "Player")]
+       [Authorize(Roles = "Player")]
     [HttpPatch("me")]
     public async Task<ActionResult<PlayerResponse>> UpdateDisplayName(
         [FromBody] UpdateDisplayNameRequest request,
@@ -395,73 +389,15 @@ public sealed class PlayerAuthController(
     {
         if (!ModelState.IsValid)
         {
-            return ValidationProblem(ModelState);
-        }
-
-        var subject = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
-        if (string.IsNullOrWhiteSpace(subject) || !Guid.TryParse(subject, out var userId))
-        {
-            return Unauthorized();
-        }
-
-        var trimmedName = request.DisplayName.Trim();
-        if (trimmedName.Length < 2)
-        {
-            ModelState.AddModelError(nameof(request.DisplayName), "Display name must be at least 2 characters.");
-            return ValidationProblem(ModelState);
-        }
-
-        var user = await database.Users.SingleOrDefaultAsync(u => u.Id == userId, cancellationToken);
-        if (user is null)
-        {
-            return Unauthorized();
-        }
-
-        if (user.IsSuspended)
-        {
-            return StatusCode(StatusCodes.Status403Forbidden, new { message = "Account is suspended." });
-        }
-
-        user.UserName = trimmedName;
-        var updateResult = await userManager.UpdateAsync(user);
-        if (!updateResult.Succeeded)
-        {
-            foreach (var error in updateResult.Errors)
+            return ValidationProblem(new ValidationProblemDetails(ModelState)
             {
-                ModelState.AddModelError(string.Empty, error.Description);
-            }
-            return ValidationProblem(ModelState);
+                Type = "https://tools.ietf.org/html/rfc7807",
+                Title = "Bad Request",
+                Status = StatusCodes.Status400BadRequest,
+                Detail = "Display name must be between 2 and 24 characters."
+            });
         }
 
-        await auditLogWriter.WriteAsync(
-            "PlayerProfileUpdated",
-            "Information",
-            "DisplayNameChanged",
-            cancellationToken,
-            actorUserId: user.Id,
-            actorUsername: user.UserName,
-            targetType: "Player",
-            targetId: user.Id.ToString("D"));
-
-        logger.LogInformation("Player {PlayerId} updated display name to {DisplayName}", user.Id, trimmedName);
-
-        // ส่งค่าพารามิเตอร์ครบถ้วนตามโครงสร้าง PlayerResponse ใหม่
-        return Ok(new PlayerResponse(
-            Id: $"p_{user.Id:N}".Substring(0, 12),
-            DisplayName: user.UserName,
-            Coins: 100,
-            BestScore: 0,
-            TotalServed: 0,
-            Upgrades: new Dictionary<string, int>(),
-            CreatedAt: user.CreatedAtUtc.ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
-        ));
-    }
-
-     [Authorize(Roles = "Player")]
-    [HttpGet("me")]
-    public async Task<ActionResult<PlayerProfileResponse>> GetProfile(CancellationToken cancellationToken)
-    {
-        // 1. ตรวจสอบและดึง User ID จาก Claims (รองรับทั้ง NameIdentifier และ sub)
         var subject = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
         if (string.IsNullOrWhiteSpace(subject) || !Guid.TryParse(subject, out var userId))
         {
@@ -474,11 +410,8 @@ public sealed class PlayerAuthController(
             });
         }
 
-        // 2. ค้นหาข้อมูลผู้เล่นจากฐานข้อมูล
-        var user = await database.Users
-            .AsNoTracking()
-            .SingleOrDefaultAsync(account => account.Id == userId, cancellationToken);
-
+        var trimmedName = request.DisplayName.Trim();
+        var user = await database.Users.SingleOrDefaultAsync(u => u.Id == userId, cancellationToken);
         if (user is null)
         {
             return Unauthorized(new ProblemDetails
@@ -490,7 +423,6 @@ public sealed class PlayerAuthController(
             });
         }
 
-        // 3. ตรวจสอบสถานะบัญชีถูกระงับ (Suspended)
         if (user.IsSuspended)
         {
             return StatusCode(StatusCodes.Status403Forbidden, new ProblemDetails
@@ -502,11 +434,83 @@ public sealed class PlayerAuthController(
             });
         }
 
-        // 4. ส่งกลับข้อมูล PlayerProfileResponse ตามรูปแบบที่กำหนด
-        return Ok(new PlayerProfileResponse(
-            Id: user.Id,
+        // อัปเดตเฉพาะ displayName โดยไม่กระทบ username หลัก
+        user.DisplayName = trimmedName;
+        var updateResult = await userManager.UpdateAsync(user);
+        if (!updateResult.Succeeded)
+        {
+            return StatusCode(StatusCodes.Status500InternalServerError, new ProblemDetails
+            {
+                Type = "https://tools.ietf.org/html/rfc7807",
+                Title = "Internal Server Error",
+                Status = StatusCodes.Status500InternalServerError,
+                Detail = "Failed to update display name."
+            });
+        }
+
+        return Ok(new PlayerResponse(
+            Id: $"p_{user.Id:N}".Substring(0, 12),
             Username: user.UserName,
-            CreatedAtUtc: user.CreatedAtUtc));
+            DisplayName: user.DisplayName ?? user.UserName,
+            Coins: 100,
+            BestScore: 0,
+            TotalServed: 0,
+            Upgrades: new Dictionary<string, int>(),
+            CreatedAt: user.CreatedAtUtc.ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
+        ));
+    }
+
+     [Authorize(Roles = "Player")]
+    [HttpGet("me")]
+    public async Task<ActionResult<PlayerResponse>> GetProfile(CancellationToken cancellationToken)
+    {
+        var subject = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
+        if (string.IsNullOrWhiteSpace(subject) || !Guid.TryParse(subject, out var userId))
+        {
+            return Unauthorized(new ProblemDetails
+            {
+                Type = "https://tools.ietf.org/html/rfc7807",
+                Title = "Unauthorized",
+                Status = StatusCodes.Status401Unauthorized,
+                Detail = "Token is expired or invalid."
+            });
+        }
+
+        var user = await database.Users
+            .AsNoTracking()
+            .SingleOrDefaultAsync(account => account.Id == userId, cancellationToken);
+        if (user is null)
+        {
+            return Unauthorized(new ProblemDetails
+            {
+                Type = "https://tools.ietf.org/html/rfc7807",
+                Title = "Unauthorized",
+                Status = StatusCodes.Status401Unauthorized,
+                Detail = "Player not found."
+            });
+        }
+
+        if (user.IsSuspended)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new ProblemDetails
+            {
+                Type = "https://tools.ietf.org/html/rfc7807",
+                Title = "Forbidden",
+                Status = StatusCodes.Status403Forbidden,
+                Detail = "Account is suspended."
+            });
+        }
+
+        return Ok(new PlayerResponse(
+            Id: $"p_{user.Id:N}".Substring(0, 12),
+            Username: user.UserName,
+            DisplayName: user.DisplayName ?? user.UserName ?? "ผู้เล่นใหม่",
+            Coins: 100,
+            BestScore: 0,
+            TotalServed: 0,
+            Upgrades: new Dictionary<string, int>(),
+            CreatedAt: user.CreatedAtUtc.ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
+        ));
     }
 
     private static void EnsureSucceeded(IdentityResult result, string operation)
@@ -543,6 +547,7 @@ public sealed class PlayerAuthController(
 
     public sealed record PlayerResponse(
         string Id,
+        string? Username,
         string DisplayName,
         int Coins,
         int BestScore,
