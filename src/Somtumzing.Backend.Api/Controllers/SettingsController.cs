@@ -39,14 +39,14 @@ public sealed class SettingsController(
 
             // ค้นหา Setting ของผู้เล่น หากยังไม่มีให้สร้างค่าเริ่มต้น (Default)
             var settings = await database.PlayerSettings
-                .SingleOrDefaultAsync(s => s.PlayerPK == userId, cancellationToken);
+                .SingleOrDefaultAsync(s => s.PlayerPK == userId.Value, cancellationToken);
 
             if (settings is null)
             {
                 settings = new PlayerSetting
                 {
                     PK = Guid.NewGuid(),
-                    PlayerPK = userId,
+                    PlayerPK = userId.Value,
                     Sound = true,
                     Language = "th",
                     Analytics = true,
