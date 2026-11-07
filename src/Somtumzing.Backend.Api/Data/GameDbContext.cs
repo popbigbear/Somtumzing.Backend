@@ -38,6 +38,8 @@ public sealed class GameDbContext(DbContextOptions<GameDbContext> options)
     public DbSet<MatchSabotageEvent> MatchSabotageEvents => Set<MatchSabotageEvent>();
     public DbSet<PlayerSetting> PlayerSettings => Set<PlayerSetting>();
 
+    // เพิ่ม DbSet สำหรับ PlayerMission เพื่อให้ Controller เรียกใช้งานผ่าน database.PlayerMissions ได้อย่างถูกต้อง
+    public DbSet<PlayerMission> PlayerMissions => Set<PlayerMission>();
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -523,6 +525,16 @@ public sealed class GameDbContext(DbContextOptions<GameDbContext> options)
         {
             entity.Property(row => row.Language).HasMaxLength(10).IsRequired();
             entity.HasIndex(row => row.PlayerPK).IsUnique();
+            entity.HasOne<ApplicationUser>().WithMany().HasForeignKey(row => row.PlayerPK)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // กำหนดค่าตาราง PlayerMissions (เพิ่มใหม่เพื่อความสมบูรณ์ของ EF Core Model)
+        ConfigureRecord<PlayerMission>(builder, "PlayerMissions", "PlayerMission", "3", "ACTIVE");
+        builder.Entity<PlayerMission>(entity =>
+        {
+            entity.Property(row => row.MissionKey).HasMaxLength(64).IsRequired();
+            entity.HasIndex(row => new { row.PlayerPK, row.MissionKey }).IsUnique();
             entity.HasOne<ApplicationUser>().WithMany().HasForeignKey(row => row.PlayerPK)
                 .OnDelete(DeleteBehavior.Restrict);
         });
