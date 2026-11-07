@@ -4,7 +4,7 @@ namespace Somtumzing.Backend.Api.Models;
 
 public sealed class ApplicationUser : IdentityUser<Guid>
 {
-    public string Code { get; set; } = string.Empty;
+    public string? Code { get; set; }
     public DateTimeOffset CreatedAtUtc { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset CreatedDate { get; set; }
     public Guid? CreatedBy { get; set; }
