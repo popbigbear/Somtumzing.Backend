@@ -43,7 +43,9 @@ public sealed class PlayerAuthController(
             Id = Guid.NewGuid(),
             UserName = $"guest-{Guid.NewGuid():N}",
             DisplayName = $"ร้านใหม่ #{Guid.NewGuid():N}".Substring(0, 4).ToUpper(),
-            CreatedAtUtc = now
+            CreatedAtUtc = now,
+            SecurityStamp = Guid.NewGuid().ToString("D"), // กำหนด SecurityStamp ไม่ให้เป็นค่า Null
+            ConcurrencyStamp = Guid.NewGuid().ToString("D"), // กำหนด ConcurrencyStamp ป้องกัน Concurrency Conflict
         };
 
         var password = WebEncoders.Base64UrlEncode(RandomNumberGenerator.GetBytes(48)) + "aA1!";
@@ -136,11 +138,13 @@ public sealed class PlayerAuthController(
             {
                 // 2. สร้างผู้เล่นใหม่โดยบันทึกผ่าน DbContext ตรงๆ เพื่อป้องกัน Database Trigger ขัดข้อง
                 var defaultDisplayName = $"ร้านใหม่ #{Guid.NewGuid():N}".Substring(0, 4).ToUpper();
-                user = new ApplicationUser
+               user = new ApplicationUser
                 {
                     Id = Guid.NewGuid(),
                     UserName = guestUserName,
                     DisplayName = defaultDisplayName,
+                    SecurityStamp = Guid.NewGuid().ToString("D"), // กำหนด SecurityStamp ไม่ให้เป็นค่า Null
+                    ConcurrencyStamp = Guid.NewGuid().ToString("D"), // กำหนด ConcurrencyStamp ป้องกัน Concurrency Conflict
                     CreatedAtUtc = now
                 };
 
