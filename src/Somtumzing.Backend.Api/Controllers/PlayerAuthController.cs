@@ -183,6 +183,14 @@ public sealed class PlayerAuthController(
                     });
                 }
                 user = existingUser;
+
+                 // ตรวจสอบและกำหนด SecurityStamp หากของเดิมใน DB เป็นค่าว่าง (ป้องกัน Error "Player security stamp is not initialized")
+                if (string.IsNullOrEmpty(user.SecurityStamp))
+                {
+                    user.SecurityStamp = Guid.NewGuid().ToString("D");
+                    user.ConcurrencyStamp = Guid.NewGuid().ToString("D");
+                    await database.SaveChangesAsync(cancellationToken);
+                }
             }
             else
             {
