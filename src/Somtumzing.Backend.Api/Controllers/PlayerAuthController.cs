@@ -32,22 +32,33 @@ public sealed class PlayerAuthController(
     public async Task<ActionResult<AuthSessionResponse>> CreateGuest(CancellationToken cancellationToken)
     {
         var now = DateTimeOffset.UtcNow;
-        await using var transaction = await database.Database.BeginTransactionAsync(cancellationToken);
+        
+        // 1. สร้าง Guest User โดยกำหนดค่าครั้งเดียวจบ หลีกเลี่ยงการสั่ง Update ซ้ำซ้อนที่กระตุ้น Database Trigger
         var user = new ApplicationUser
         {
             Id = Guid.NewGuid(),
             UserName = $"guest-{Guid.NewGuid():N}",
+            DisplayName = $"ร้านใหม่ #{Guid.NewGuid():N}".Substring(0, 4).ToUpper(),
             CreatedAtUtc = now
         };
+
         var password = WebEncoders.Base64UrlEncode(RandomNumberGenerator.GetBytes(48)) + "aA1!";
-        var createResult = await userManager.CreateAsync(user, password);
-        EnsureSucceeded(createResult, "creating a guest player");
+        
+        // บันทึกผ่าน DbContext โดยตรงเพื่อควบคุมคำสั่ง SQL ไม่ให้ส่งค่าซ้ำซ้อน
+        database.Users.Add(user);
+        await database.SaveChangesAsync(cancellationToken);
+
+        var passwordHasher = new PasswordHasher<ApplicationUser>();
+        user.PasswordHash = passwordHasher.HashPassword(user, password);
+        await database.SaveChangesAsync(cancellationToken);
 
         var roleResult = await userManager.AddToRoleAsync(user, "Player");
         EnsureSucceeded(roleResult, "assigning the player role");
 
         var refresh = RefreshTokenFactory.Create(user.Id, now);
         database.RefreshTokens.Add(refresh.Entity);
+        await database.SaveChangesAsync(cancellationToken);
+
         await auditLogWriter.WriteAsync(
             "PlayerLogin",
             "Information",
@@ -57,7 +68,7 @@ public sealed class PlayerAuthController(
             actorUsername: user.UserName,
             targetType: "Player",
             targetId: user.Id.ToString("D"));
-        await transaction.CommitAsync(cancellationToken);
+
         logger.LogInformation(
             PlayerLoginEvent,
             "Player authentication completed. {EventType} {PlayerId} {Outcome}",
@@ -76,7 +87,7 @@ public sealed class PlayerAuthController(
     // ==========================================
     // Guest Login Endpoint (Updated with DeviceId tracking & RFC 7807 Error format)
     // ==========================================
-    [HttpPost("guest")]
+     [HttpPost("guest")]
     [EnableRateLimiting("guest-bootstrap")]
     public async Task<ActionResult<GuestAuthResponse>> GuestLogin(
         [FromBody] GuestLoginRequest request,
@@ -96,9 +107,11 @@ public sealed class PlayerAuthController(
         try
         {
             var now = DateTimeOffset.UtcNow;
+            var guestUserName = $"guest-{request.DeviceId}";
             
+            // 1. ค้นหาผู้เล่นเดิมจาก DeviceId
             var existingUser = await database.Users
-                .SingleOrDefaultAsync(u => u.UserName == $"guest-{request.DeviceId}", cancellationToken);
+                .SingleOrDefaultAsync(u => u.UserName == guestUserName, cancellationToken);
 
             ApplicationUser user;
             if (existingUser is not null)
@@ -117,39 +130,42 @@ public sealed class PlayerAuthController(
             }
             else
             {
-                var defaultDisplayName = $"ร้านใหม่ #{Guid.NewGuid():N}".Substring(0, 10).ToUpper();
+                // 2. สร้างผู้เล่นใหม่โดยบันทึกผ่าน DbContext ตรงๆ เพื่อป้องกัน Database Trigger ขัดข้อง
+                var defaultDisplayName = $"ร้านใหม่ #{Guid.NewGuid():N}".Substring(0, 4).ToUpper();
                 user = new ApplicationUser
                 {
                     Id = Guid.NewGuid(),
-                    UserName = $"guest-{request.DeviceId}",
+                    UserName = guestUserName,
                     DisplayName = defaultDisplayName,
                     CreatedAtUtc = now
                 };
 
                 var password = WebEncoders.Base64UrlEncode(RandomNumberGenerator.GetBytes(48)) + "aA1!";
-                var createResult = await userManager.CreateAsync(user, password);
-                if (!createResult.Succeeded)
-                {
-                    return StatusCode(StatusCodes.Status500InternalServerError, new ProblemDetails
-                    {
-                        Type = "https://tools.ietf.org/html/rfc7807",
-                        Title = "Internal Server Error",
-                        Status = StatusCodes.Status500InternalServerError,
-                        Detail = "Failed to create guest user."
-                    });
-                }
+                
+                database.Users.Add(user);
+                await database.SaveChangesAsync(cancellationToken);
+
+                var passwordHasher = new PasswordHasher<ApplicationUser>();
+                user.PasswordHash = passwordHasher.HashPassword(user, password);
+                await database.SaveChangesAsync(cancellationToken);
 
                 await userManager.AddToRoleAsync(user, "Player");
             }
 
             var accessToken = accessTokens.CreatePlayerToken(user, now);
 
+            logger.LogInformation(
+                PlayerLoginEvent,
+                "Guest login completed for device {DeviceId} on platform {Platform}",
+                request.DeviceId,
+                request.Platform);
+
             return Ok(new GuestAuthResponse(
                 Token: $"mock_p_{accessToken.Substring(0, Math.Min(16, accessToken.Length))}",
                 Player: new PlayerResponse(
                     Id: $"p_{user.Id:N}".Substring(0, 12),
                     Username: user.UserName,
-                    DisplayName: user.DisplayName ?? user.UserName,
+                    DisplayName: user.DisplayName ?? user.UserName ?? "ผู้เล่นใหม่",
                     Coins: 100,
                     BestScore: 0,
                     TotalServed: 0,
