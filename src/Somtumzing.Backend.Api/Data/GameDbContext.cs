@@ -36,6 +36,7 @@ public sealed class GameDbContext(DbContextOptions<GameDbContext> options)
     public DbSet<PlayerLoadout> PlayerLoadouts => Set<PlayerLoadout>();
     public DbSet<PlayerLoadoutCard> PlayerLoadoutCards => Set<PlayerLoadoutCard>();
     public DbSet<MatchSabotageEvent> MatchSabotageEvents => Set<MatchSabotageEvent>();
+    public DbSet<PlayerSetting> PlayerSettings => Set<PlayerSetting>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -513,6 +514,16 @@ public sealed class GameDbContext(DbContextOptions<GameDbContext> options)
             entity.HasOne<MatchParticipant>().WithMany().HasForeignKey(row => row.TargetParticipantPK)
                 .OnDelete(DeleteBehavior.Restrict);
             entity.HasOne<SabotageCard>().WithMany().HasForeignKey(row => row.CardPK)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+         // เพิ่มการกำหนดค่าตาราง PlayerSettings
+        ConfigureRecord<PlayerSetting>(builder, "PlayerSettings", "PlayerSetting", "2", "ACTIVE");
+        builder.Entity<PlayerSetting>(entity =>
+        {
+            entity.Property(row => row.Language).HasMaxLength(10).IsRequired();
+            entity.HasIndex(row => row.PlayerPK).IsUnique();
+            entity.HasOne<ApplicationUser>().WithMany().HasForeignKey(row => row.PlayerPK)
                 .OnDelete(DeleteBehavior.Restrict);
         });
     }

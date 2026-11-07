@@ -186,6 +186,60 @@ public sealed class PlayerAuthController(
         }
     }
 
+    // ==========================================
+    // 6. GET /api/v1/profile (Init Profile)
+    // ==========================================
+    [HttpGet("profile")]
+    [ProducesResponseType(typeof(ProfileResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<ActionResult<ProfileResponse>> GetProfile(CancellationToken cancellationToken)
+    {
+        try
+        {
+            var userId = GetCurrentUserId();
+            if (userId == null) return UnauthorizedProblem();
+
+            var user = await database.Users
+                .AsNoTracking()
+                .SingleOrDefaultAsync(u => u.Id == userId, cancellationToken);
+
+            if (user is null) return UnauthorizedProblem();
+            if (user.IsSuspended) return ForbiddenProblem();
+
+            // คำนวณจำนวนวันที่เข้าร่วมระบบ (อย่างน้อย 1 วัน)
+            int joinedDays = Math.Max(1, (int)(DateTimeOffset.UtcNow - user.CreatedAtUtc).TotalDays);
+
+            var response = new ProfileResponse(
+                Id: $"p_{user.Id:N}".Substring(0, 12),
+                DisplayName: user.DisplayName ?? user.UserName ?? $"ร้านใหม่ #{user.Id.ToString("N").Substring(0, 4).ToUpper()}",
+                Coins: 100,
+                BestScore: 0,
+                TotalServed: 0,
+                Upgrades: new Dictionary<string, int>(),
+                CreatedAt: user.CreatedAtUtc.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"),
+                JoinedDays: joinedDays,
+                RunsPlayed: 0);
+
+            logger.LogInformation(GameEvent, "Init profile fetched successfully for player {PlayerId}", userId);
+
+            return Ok(response);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "An error occurred while fetching player profile.");
+            return StatusCode(StatusCodes.Status500InternalServerError, new ProblemDetails
+            {
+                Type = "https://tools.ietf.org/html/rfc7807",
+                Title = "Backend Error",
+                Status = StatusCodes.Status500InternalServerError,
+                Detail = "An unexpected error occurred while loading profile.",
+                Instance = HttpContext.Request.Path
+            });
+        }
+    }
+
 
     [HttpPost("refresh")]
     public async Task<ActionResult<AuthSessionResponse>> Refresh(
@@ -582,4 +636,15 @@ public sealed class PlayerAuthController(
         [StringLength(128, MinimumLength = 64)]
         public string RefreshToken { get; init; } = string.Empty;
     }
+
+    public sealed record ProfileResponse(
+        string Id,
+        string DisplayName,
+        int Coins,
+        int BestScore,
+        int TotalServed,
+        Dictionary<string, int> Upgrades,
+        string CreatedAt,
+        int JoinedDays,
+        int RunsPlayed);
 }
