@@ -136,25 +136,24 @@ public sealed class PlayerAuthController(
             }
             else
             {
-                // 2. สร้างผู้เล่นใหม่โดยบันทึกผ่าน DbContext ตรงๆ เพื่อป้องกัน Database Trigger ขัดข้อง
+                // 2. สร้างผู้เล่นใหม่โดยกำหนดค่าทั้งหมดครั้งเดียวจบ แล้วสั่ง SaveChangesAsync ครั้งเดียวเพื่อไม่ให้ Trigger ทำงานซ้ำซ้อน
                 var defaultDisplayName = $"ร้านใหม่ #{Guid.NewGuid():N}".Substring(0, 4).ToUpper();
-               user = new ApplicationUser
+                user = new ApplicationUser
                 {
                     Id = Guid.NewGuid(),
                     UserName = guestUserName,
                     DisplayName = defaultDisplayName,
-                    SecurityStamp = Guid.NewGuid().ToString("D"), // กำหนด SecurityStamp ไม่ให้เป็นค่า Null
-                    ConcurrencyStamp = Guid.NewGuid().ToString("D"), // กำหนด ConcurrencyStamp ป้องกัน Concurrency Conflict
+                    SecurityStamp = Guid.NewGuid().ToString("D"),
+                    ConcurrencyStamp = Guid.NewGuid().ToString("D"),
                     CreatedAtUtc = now
                 };
 
                 var password = WebEncoders.Base64UrlEncode(RandomNumberGenerator.GetBytes(48)) + "aA1!";
-                
-                database.Users.Add(user);
-                await database.SaveChangesAsync(cancellationToken);
-
                 var passwordHasher = new PasswordHasher<ApplicationUser>();
                 user.PasswordHash = passwordHasher.HashPassword(user, password);
+
+                // บันทึกครั้งเดียวจบ ไม่มีการ UPDATE ซ้ำซ้อน
+                database.Users.Add(user);
                 await database.SaveChangesAsync(cancellationToken);
 
                 await userManager.AddToRoleAsync(user, "Player");
