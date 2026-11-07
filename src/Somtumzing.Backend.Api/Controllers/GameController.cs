@@ -187,6 +187,116 @@ public sealed class GameController(
         Detail = "Account is suspended."
     });
 
+     /// <summary>
+    /// ดึงข้อมูลคลังของผู้เล่น (Energy, Ingredients, Cosmetics)
+    /// GET /api/v1/inventory
+    /// Security Level: Protected — Authorization: Bearer <token>
+    /// </summary>
+    [HttpGet("inventory")]
+    [ProducesResponseType(typeof(InventoryResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<ActionResult<InventoryResponse>> GetInventory(CancellationToken cancellationToken)
+    {
+        try
+        {
+            // 1. ตรวจสอบ Token และดึง User ID จาก Claims
+            var subject = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
+            if (string.IsNullOrWhiteSpace(subject) || !Guid.TryParse(subject, out var userId))
+            {
+                return Unauthorized(new ProblemDetails
+                {
+                    Type = "https://tools.ietf.org/html/rfc7807",
+                    Title = "Unauthorized",
+                    Status = StatusCodes.Status401Unauthorized,
+                    Detail = "Token is expired or invalid.",
+                    Instance = HttpContext.Request.Path
+                });
+            }
+
+            // 2. ตรวจสอบสถานะผู้เล่นในฐานข้อมูล
+            var user = await database.Users
+                .AsNoTracking()
+                .SingleOrDefaultAsync(u => u.Id == userId, cancellationToken);
+
+            if (user is null)
+            {
+                return Unauthorized(new ProblemDetails
+                {
+                    Type = "https://tools.ietf.org/html/rfc7807",
+                    Title = "Unauthorized",
+                    Status = StatusCodes.Status401Unauthorized,
+                    Detail = "Player not found.",
+                    Instance = HttpContext.Request.Path
+                });
+            }
+
+            // 3. ตรวจสอบสถานะบัญชีถูกระงับ (Suspended)
+            if (user.IsSuspended)
+            {
+                logger.LogWarning("Suspended player {PlayerId} attempted to fetch inventory.", userId);
+                return StatusCode(StatusCodes.Status403Forbidden, new ProblemDetails
+                {
+                    Type = "https://tools.ietf.org/html/rfc7807",
+                    Title = "Forbidden",
+                    Status = StatusCodes.Status403Forbidden,
+                    Detail = "Account is suspended.",
+                    Instance = HttpContext.Request.Path
+                });
+            }
+
+            // 4. ข้อมูล Inventory จำลองตาม Schema ที่กำหนด (สามารถดึงจาก Database จริงได้ในอนาคต)
+            var ingredients = new Dictionary<string, int>
+            {
+                { "chili", 5 },
+                { "lime", 5 },
+                { "fish", 3 },
+                { "sugar", 5 },
+                { "fermented", 4 }
+            };
+
+            var cosmetics = new List<CosmeticItem>
+            {
+                new("cart-classic", "รถเข็นคู่ใจ", true),
+                new("neon-sign", "ป้ายนีออน", false)
+            };
+
+            var response = new InventoryResponse(
+                Energy: 10,
+                MaxEnergy: 10,
+                Ingredients: ingredients,
+                Cosmetics: cosmetics);
+
+            logger.LogInformation(InventoryFetchedEvent, "Inventory fetched successfully for player {PlayerId}", userId);
+
+            return Ok(response);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "An error occurred while fetching player inventory.");
+            return StatusCode(StatusCodes.Status500InternalServerError, new ProblemDetails
+            {
+                Type = "https://tools.ietf.org/html/rfc7807",
+                Title = "Backend Error",
+                Status = StatusCodes.Status500InternalServerError,
+                Detail = "An unexpected error occurred while loading inventory.",
+                Instance = HttpContext.Request.Path
+            });
+        }
+    }
+
+     public sealed record InventoryResponse(
+        int Energy,
+        int MaxEnergy,
+        Dictionary<string, int> Ingredients,
+        List<CosmeticItem> Cosmetics);
+
+    public sealed record CosmeticItem(
+        string Id,
+        string Name,
+        bool Unlocked);
+
     // Records สำหรับ Request/Response
     public sealed record RunResponse(string RunId, string Status, string StartedAt);
     public sealed record FinishRunRequest([Range(0, int.MaxValue)] int Score, int TotalServed);
