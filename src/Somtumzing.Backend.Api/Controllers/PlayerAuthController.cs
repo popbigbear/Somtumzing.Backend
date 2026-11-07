@@ -27,7 +27,7 @@ public sealed class PlayerAuthController(
     private static readonly EventId PlayerLogoutEvent = new(1003, "PlayerLogout");
     private static readonly EventId PlayerTokenRefreshRejectedEvent = new(1004, "PlayerTokenRefreshRejected");
 
-    
+
     // เพิ่ม EventId สำหรับ Player Profile เพื่อแก้ปัญหา error CS0103
     private static readonly EventId PlayerProfileEvent = new(1005, "PlayerProfileEvent");
 
@@ -35,65 +35,115 @@ public sealed class PlayerAuthController(
     [EnableRateLimiting("guest-bootstrap")]
     public async Task<ActionResult<AuthSessionResponse>> CreateGuest(CancellationToken cancellationToken)
     {
+
         var now = DateTimeOffset.UtcNow;
-        
-        // 1. สร้าง Guest User โดยกำหนดค่าครั้งเดียวจบ หลีกเลี่ยงการสั่ง Update ซ้ำซ้อนที่กระตุ้น Database Trigger
+
+        var userId = Guid.NewGuid();
+
+
+
         var user = new ApplicationUser
+
         {
-            Id = Guid.NewGuid(),
+
+            Id = userId,
+
             UserName = $"guest-{Guid.NewGuid():N}",
+
             DisplayName = $"ร้านใหม่ #{Guid.NewGuid():N}".Substring(0, 4).ToUpper(),
+
             CreatedAtUtc = now,
-            SecurityStamp = Guid.NewGuid().ToString("D"), // กำหนด SecurityStamp ไม่ให้เป็นค่า Null
-            ConcurrencyStamp = Guid.NewGuid().ToString("D"), // กำหนด ConcurrencyStamp ป้องกัน Concurrency Conflict
+
+            SecurityStamp = Guid.NewGuid().ToString("D"),
+
+            ConcurrencyStamp = Guid.NewGuid().ToString("D"),
+
         };
 
+
+        // แฮชรหัสผ่านให้เรียบร้อยก่อน Add เข้า DbContext เพื่อให้บันทึกในรอบเดียวจบ (Single Round-trip)
+
         var password = WebEncoders.Base64UrlEncode(RandomNumberGenerator.GetBytes(48)) + "aA1!";
-        
-        // บันทึกผ่าน DbContext โดยตรงเพื่อควบคุมคำสั่ง SQL ไม่ให้ส่งค่าซ้ำซ้อน
-        database.Users.Add(user);
-        await database.SaveChangesAsync(cancellationToken);
 
         var passwordHasher = new PasswordHasher<ApplicationUser>();
+
         user.PasswordHash = passwordHasher.HashPassword(user, password);
+
+
+        // เพิ่ม User เข้า DbSet
+
+        database.Users.Add(user);
+
+
+        // สร้าง Refresh Token รอไว้เลยเพื่อบันทึกพร้อมกันใน Transaction เดียว
+
+        var refresh = RefreshTokenFactory.Create(userId, now);
+
+        database.RefreshTokens.Add(refresh.Entity);
+
+
+        // บันทึกครั้งเดียวจบ (Atomic Operation) ป้องกันการกระตุ้น Trigger ซ้ำซ้อน
+
         await database.SaveChangesAsync(cancellationToken);
+
+
+        // กำหนด Role หลังจากบันทึกตัว User ลงฐานข้อมูลเรียบร้อยแล้ว (UserManager จำเป็นต้องใช้ User ที่มีสถานะ Attached/Persisted)
 
         var roleResult = await userManager.AddToRoleAsync(user, "Player");
+
         EnsureSucceeded(roleResult, "assigning the player role");
 
-        var refresh = RefreshTokenFactory.Create(user.Id, now);
-        database.RefreshTokens.Add(refresh.Entity);
-        await database.SaveChangesAsync(cancellationToken);
 
         await auditLogWriter.WriteAsync(
+
             "PlayerLogin",
+
             "Information",
+
             "GuestCreated",
+
             cancellationToken,
+
             actorUserId: user.Id,
+
             actorUsername: user.UserName,
+
             targetType: "Player",
+
             targetId: user.Id.ToString("D"));
 
+
         logger.LogInformation(
+
             PlayerLoginEvent,
+
             "Player authentication completed. {EventType} {PlayerId} {Outcome}",
+
             "PlayerLogin",
+
             user.Id,
+
             "GuestCreated");
 
+
         return Ok(new AuthSessionResponse(
+
             user.Id,
+
             accessTokens.CreatePlayerToken(user, now),
+
             refresh.PlainText,
+
             now.AddMinutes(15),
+
             refresh.Entity.ExpiresAtUtc));
+
     }
 
     // ==========================================
     // Guest Login Endpoint (Updated with DeviceId tracking & RFC 7807 Error format)
     // ==========================================
-     [HttpPost("guest")]
+    [HttpPost("guest")]
     [EnableRateLimiting("guest-bootstrap")]
     public async Task<ActionResult<GuestAuthResponse>> GuestLogin(
         [FromBody] GuestLoginRequest request,
@@ -114,7 +164,7 @@ public sealed class PlayerAuthController(
         {
             var now = DateTimeOffset.UtcNow;
             var guestUserName = $"guest-{request.DeviceId}";
-            
+
             // 1. ค้นหาผู้เล่นเดิมจาก DeviceId
             var existingUser = await database.Users
                 .SingleOrDefaultAsync(u => u.UserName == guestUserName, cancellationToken);
@@ -193,7 +243,7 @@ public sealed class PlayerAuthController(
         }
     }
 
-   
+
 
 
     [HttpPost("refresh")]
@@ -214,7 +264,7 @@ public sealed class PlayerAuthController(
 
         var now = DateTimeOffset.UtcNow;
         await using var transaction = await database.Database.BeginTransactionAsync(cancellationToken);
-        
+
         var tokenHash = RefreshTokenFactory.Hash(request.RefreshToken);
         var token = await database.RefreshTokens
             .Include(refreshToken => refreshToken.User)
@@ -230,7 +280,7 @@ public sealed class PlayerAuthController(
                 "InvalidOrExpired",
                 cancellationToken);
             await transaction.CommitAsync(cancellationToken);
-            
+
             logger.LogWarning(
                 PlayerTokenRefreshRejectedEvent,
                 "Player refresh was rejected. {EventType} {Outcome}",
@@ -259,7 +309,7 @@ public sealed class PlayerAuthController(
                 targetType: "Player",
                 targetId: token.UserId.ToString("D"));
             await transaction.CommitAsync(cancellationToken);
-            
+
             logger.LogWarning(
                 PlayerTokenRefreshRejectedEvent,
                 "Player refresh was rejected. {EventType} {PlayerId} {Outcome}",
@@ -406,11 +456,11 @@ public sealed class PlayerAuthController(
         return Ok();
     }
 
-       [Authorize(Roles = "Player")]
+    [Authorize(Roles = "Player")]
     [HttpPatch("me")]
     public async Task<ActionResult<PlayerResponse>> UpdateDisplayName(
-        [FromBody] UpdateDisplayNameRequest request,
-        CancellationToken cancellationToken)
+     [FromBody] UpdateDisplayNameRequest request,
+     CancellationToken cancellationToken)
     {
         if (!ModelState.IsValid)
         {
@@ -508,7 +558,7 @@ public sealed class PlayerAuthController(
         Detail = "Account is suspended."
     });
 
-   
+
 
     private static void EnsureSucceeded(IdentityResult result, string operation)
     {
@@ -519,12 +569,12 @@ public sealed class PlayerAuthController(
         }
     }
 
-     public sealed record AuthSessionResponse(
-        Guid PlayerId,
-        string AccessToken,
-        string RefreshToken,
-        DateTimeOffset AccessTokenExpiresAtUtc,
-        DateTimeOffset RefreshTokenExpiresAtUtc);
+    public sealed record AuthSessionResponse(
+       Guid PlayerId,
+       string AccessToken,
+       string RefreshToken,
+       DateTimeOffset AccessTokenExpiresAtUtc,
+       DateTimeOffset RefreshTokenExpiresAtUtc);
 
     public sealed record PlayerProfileResponse(
         Guid Id,
@@ -538,9 +588,9 @@ public sealed class PlayerAuthController(
         [RegularExpression("^(web|ios|android)$", ErrorMessage = "Platform must be 'web', 'ios', or 'android'.")]
         string Platform);
 
-     public sealed record GuestAuthResponse(
-        string Token,
-        PlayerResponse Player);
+    public sealed record GuestAuthResponse(
+       string Token,
+       PlayerResponse Player);
 
     public sealed record PlayerResponse(
         string Id,
