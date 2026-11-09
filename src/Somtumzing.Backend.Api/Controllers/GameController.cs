@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Somtumzing.Backend.Api.Data;
+using Somtumzing.Backend.Api.Models;
 
 namespace Somtumzing.Backend.Api.Controllers;
 
