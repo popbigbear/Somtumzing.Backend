@@ -258,9 +258,8 @@ public sealed class GameController(
     });
 
      /// <summary>
-    /// ดึงข้อมูลคลังของผู้เล่น (Energy, Ingredients, Cosmetics)
+    /// ดึงข้อมูลคลังของผู้เล่น (Energy, Ingredients, Cosmetics) จาก Database จริง
     /// GET /api/v1/inventory
-    /// Security Level: Protected — Authorization: Bearer <token>
     /// </summary>
     [HttpGet("inventory")]
     [ProducesResponseType(typeof(InventoryResponse), StatusCodes.Status200OK)]
@@ -271,74 +270,63 @@ public sealed class GameController(
     {
         try
         {
-            // 1. ตรวจสอบ Token และดึง User ID จาก Claims
-            var subject = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
-            if (string.IsNullOrWhiteSpace(subject) || !Guid.TryParse(subject, out var userId))
-            {
-                return Unauthorized(new ProblemDetails
-                {
-                    Type = "https://tools.ietf.org/html/rfc7807",
-                    Title = "Unauthorized",
-                    Status = StatusCodes.Status401Unauthorized,
-                    Detail = "Token is expired or invalid.",
-                    Instance = HttpContext.Request.Path
-                });
-            }
+            var userId = GetCurrentUserId();
+            if (userId == null) return UnauthorizedProblem();
 
-            // 2. ตรวจสอบสถานะผู้เล่นในฐานข้อมูล
             var user = await database.Users
-                .AsNoTracking()
-                .SingleOrDefaultAsync(u => u.Id == userId, cancellationToken);
+                .SingleOrDefaultAsync(u => u.Id == userId.Value, cancellationToken);
 
-            if (user is null)
+            if (user is null) return UnauthorizedProblem();
+            if (user.IsSuspended) return ForbiddenProblem();
+
+            // 1. ดึงข้อมูลส่วนผสม (Ingredients) จาก Database ของผู้เล่น
+            var playerIngredients = await database.PlayerIngredients
+                .Where(i => i.PlayerPK == userId.Value)
+                .ToListAsync(cancellationToken);
+
+            // หากยังไม่มีข้อมูลเริ่มต้น ให้สร้างชุดเริ่มต้นให้
+            if (playerIngredients.Count == 0)
             {
-                return Unauthorized(new ProblemDetails
+                var defaultIngredients = new List<PlayerIngredient>
                 {
-                    Type = "https://tools.ietf.org/html/rfc7807",
-                    Title = "Unauthorized",
-                    Status = StatusCodes.Status401Unauthorized,
-                    Detail = "Player not found.",
-                    Instance = HttpContext.Request.Path
-                });
+                    new() { PK = Guid.NewGuid(), PlayerPK = userId.Value, ItemKey = "chili", Quantity = 5 },
+                    new() { PK = Guid.NewGuid(), PlayerPK = userId.Value, ItemKey = "lime", Quantity = 5 },
+                    new() { PK = Guid.NewGuid(), PlayerPK = userId.Value, ItemKey = "fish", Quantity = 3 },
+                    new() { PK = Guid.NewGuid(), PlayerPK = userId.Value, ItemKey = "sugar", Quantity = 5 },
+                    new() { PK = Guid.NewGuid(), PlayerPK = userId.Value, ItemKey = "fermented", Quantity = 4 }
+                };
+                database.PlayerIngredients.AddRange(defaultIngredients);
+                await database.SaveChangesAsync(cancellationToken);
+                playerIngredients = defaultIngredients;
             }
 
-            // 3. ตรวจสอบสถานะบัญชีถูกระงับ (Suspended)
-            if (user.IsSuspended)
+            // 2. ดึงข้อมูลคอสเมติกส์ (Cosmetics) จาก Database ของผู้เล่น
+            var playerCosmetics = await database.PlayerCosmetics
+                .Where(c => c.PlayerPK == userId.Value)
+                .ToListAsync(cancellationToken);
+
+            if (playerCosmetics.Count == 0)
             {
-                logger.LogWarning("Suspended player {PlayerId} attempted to fetch inventory.", userId);
-                return StatusCode(StatusCodes.Status403Forbidden, new ProblemDetails
+                var defaultCosmetics = new List<PlayerCosmetic>
                 {
-                    Type = "https://tools.ietf.org/html/rfc7807",
-                    Title = "Forbidden",
-                    Status = StatusCodes.Status403Forbidden,
-                    Detail = "Account is suspended.",
-                    Instance = HttpContext.Request.Path
-                });
+                    new() { PK = Guid.NewGuid(), PlayerPK = userId.Value, CosmeticKey = "cart-classic", DisplayName = "รถเข็นคู่ใจ", Unlocked = true },
+                    new() { PK = Guid.NewGuid(), PlayerPK = userId.Value, CosmeticKey = "neon-sign", DisplayName = "ป้ายนีออน", Unlocked = false }
+                };
+                database.PlayerCosmetics.AddRange(defaultCosmetics);
+                await database.SaveChangesAsync(cancellationToken);
+                playerCosmetics = defaultCosmetics;
             }
 
-            // 4. ข้อมูล Inventory จำลองตาม Schema ที่กำหนด (สามารถดึงจาก Database จริงได้ในอนาคต)
-            var ingredients = new Dictionary<string, int>
-            {
-                { "chili", 5 },
-                { "lime", 5 },
-                { "fish", 3 },
-                { "sugar", 5 },
-                { "fermented", 4 }
-            };
-
-            var cosmetics = new List<CosmeticItem>
-            {
-                new("cart-classic", "รถเข็นคู่ใจ", true),
-                new("neon-sign", "ป้ายนีออน", false)
-            };
+            var ingredientsDict = playerIngredients.ToDictionary(i => i.ItemKey, i => i.Quantity);
+            var cosmeticsList = playerCosmetics.Select(c => new CosmeticItem(c.CosmeticKey, c.DisplayName, c.Unlocked)).ToList();
 
             var response = new InventoryResponse(
-                Energy: 10,
+                Energy: user.Energy,   // ดึงจากฟิลด์ Energy จริงในตาราง Users
                 MaxEnergy: 10,
-                Ingredients: ingredients,
-                Cosmetics: cosmetics);
+                Ingredients: ingredientsDict,
+                Cosmetics: cosmeticsList);
 
-            logger.LogInformation(InventoryFetchedEvent, "Inventory fetched successfully for player {PlayerId}", userId);
+            logger.LogInformation(InventoryFetchedEvent, "Inventory fetched successfully from DB for player {PlayerId}", userId);
 
             return Ok(response);
         }

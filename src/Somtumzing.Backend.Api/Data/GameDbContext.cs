@@ -37,6 +37,10 @@ public sealed class GameDbContext(DbContextOptions<GameDbContext> options)
     public DbSet<PlayerLoadoutCard> PlayerLoadoutCards => Set<PlayerLoadoutCard>();
     public DbSet<MatchSabotageEvent> MatchSabotageEvents => Set<MatchSabotageEvent>();
     public DbSet<PlayerSetting> PlayerSettings => Set<PlayerSetting>();
+    // เพิ่ม DbSet สำหรับ Player Inventory
+    public DbSet<PlayerIngredient> PlayerIngredients => Set<PlayerIngredient>();
+    public DbSet<PlayerCosmetic> PlayerCosmetics => Set<PlayerCosmetic>();
+
 
     // เพิ่ม DbSet สำหรับ PlayerMission เพื่อให้ Controller เรียกใช้งานผ่าน database.PlayerMissions ได้อย่างถูกต้อง
     public DbSet<PlayerMission> PlayerMissions => Set<PlayerMission>();
