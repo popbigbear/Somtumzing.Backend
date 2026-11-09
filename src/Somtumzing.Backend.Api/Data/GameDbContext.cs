@@ -542,6 +542,37 @@ public sealed class GameDbContext(DbContextOptions<GameDbContext> options)
             entity.HasOne<ApplicationUser>().WithMany().HasForeignKey(row => row.PlayerPK)
                 .OnDelete(DeleteBehavior.Restrict);
         });
+
+         // กำหนดค่าตาราง PlayerMissions
+        ConfigureRecord<PlayerMission>(builder, "PlayerMissions", "PlayerMission", "3", "ACTIVE");
+        builder.Entity<PlayerMission>(entity =>
+        {
+            entity.Property(row => row.MissionKey).HasMaxLength(64).IsRequired();
+            entity.HasIndex(row => new { row.PlayerPK, row.MissionKey }).IsUnique();
+            entity.HasOne<ApplicationUser>().WithMany().HasForeignKey(row => row.PlayerPK)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // เพิ่มการกำหนดค่าตาราง PlayerIngredients
+        ConfigureRecord<PlayerIngredient>(builder, "PlayerIngredients", "PlayerIngredient", "4", "ACTIVE");
+        builder.Entity<PlayerIngredient>(entity =>
+        {
+            entity.Property(row => row.ItemKey).HasMaxLength(64).IsRequired();
+            entity.HasIndex(row => new { row.PlayerPK, row.ItemKey }).IsUnique();
+            entity.HasOne<ApplicationUser>().WithMany().HasForeignKey(row => row.PlayerPK)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // เพิ่มการกำหนดค่าตาราง PlayerCosmetics
+        ConfigureRecord<PlayerCosmetic>(builder, "PlayerCosmetics", "PlayerCosmetic", "5", "ACTIVE");
+        builder.Entity<PlayerCosmetic>(entity =>
+        {
+            entity.Property(row => row.CosmeticKey).HasMaxLength(64).IsRequired();
+            entity.Property(row => row.DisplayName).HasMaxLength(160).IsRequired();
+            entity.HasIndex(row => new { row.PlayerPK, row.CosmeticKey }).IsUnique();
+            entity.HasOne<ApplicationUser>().WithMany().HasForeignKey(row => row.PlayerPK)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
     }
 
     private static void ConfigureRecord<TEntity>(
