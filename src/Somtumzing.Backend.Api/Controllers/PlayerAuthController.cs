@@ -218,6 +218,9 @@ public sealed class PlayerAuthController(
             }
 
             var accessToken = accessTokens.CreatePlayerToken(user, now);
+            var refresh = RefreshTokenFactory.Create(user.Id, now);
+            database.RefreshTokens.Add(refresh.Entity);
+            await database.SaveChangesAsync(cancellationToken);
 
             logger.LogInformation(
                 PlayerLoginEvent,
@@ -225,8 +228,9 @@ public sealed class PlayerAuthController(
                 request.DeviceId,
                 request.Platform);
 
+             // ส่งคืน AuthSessionResponse หรือ GuestAuthResponse ตามที่ต้องการ
             return Ok(new GuestAuthResponse(
-                Token: $"mock_p_{accessToken.Substring(0, Math.Min(16, accessToken.Length))}",
+                Token: accessToken, // ใช้ AccessToken ของจริงที่สร้างจาก AccessTokenService
                 Player: new PlayerResponse(
                     Id: $"p_{user.Id:N}".Substring(0, 12),
                     Username: user.UserName,
