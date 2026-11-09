@@ -72,20 +72,32 @@ public sealed class GameController(
             });
         }
 
+        // ดึงข้อมูลผู้เล่นจากฐานข้อมูลแบบ Track เพื่อให้อัปเดตและบันทึกค่าจริงได้
         var user = await database.Users.SingleOrDefaultAsync(u => u.Id == userId, cancellationToken);
         if (user is null) return UnauthorizedProblem();
         if (user.IsSuspended) return ForbiddenProblem();
 
-        // คำนวณรางวัลและอัปเดตสถิติผู้เล่น (จำลอง)
+        // คำนวณเหรียญรางวัลและอัปเดตสถิติจริงลงในฐานข้อมูล
         int earnedCoins = request.Score / 10;
-        logger.LogInformation(GameEvent, "Player {PlayerId} finished run {RunId} with score {Score}", userId, runId, request.Score);
+        user.Coins += earnedCoins;
+        user.TotalServed += request.TotalServed;
+
+        bool isNewBest = request.Score > user.BestScore;
+        if (isNewBest)
+        {
+            user.BestScore = request.Score;
+        }
+
+        await database.SaveChangesAsync(cancellationToken);
+
+        logger.LogInformation(GameEvent, "Player {PlayerId} finished run {RunId} with score {Score}, earned {Coins} coins", userId, runId, request.Score, earnedCoins);
 
         return Ok(new FinishRunResponse(
             RunId: runId,
             Score: request.Score,
             CoinsEarned: earnedCoins,
-            TotalCoins: 100 + earnedCoins,
-            NewBestScore: request.Score > 0));
+            TotalCoins: user.Coins, // ส่งคืนยอดเหรียญจริงล่าสุดจากฐานข้อมูล
+            NewBestScore: isNewBest));
     }
 
     // ==========================================
@@ -142,7 +154,7 @@ public sealed class GameController(
     // ==========================================
     // 5. GET /api/v1/players/me (Full Player Status)
     // ==========================================
-    [HttpGet("players/me")]
+     [HttpGet("players/me")]
     [ProducesResponseType(typeof(FullPlayerResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<ActionResult<FullPlayerResponse>> GetFullPlayerProfile(CancellationToken cancellationToken)
@@ -154,19 +166,20 @@ public sealed class GameController(
         if (user is null) return UnauthorizedProblem();
         if (user.IsSuspended) return ForbiddenProblem();
 
+        // อ่านและส่งคืนข้อมูลจริงจาก Database
         return Ok(new FullPlayerResponse(
             Id: $"p_{user.Id:N}".Substring(0, 12),
             Username: user.UserName,
             DisplayName: user.DisplayName ?? user.UserName ?? "ผู้เล่นใหม่",
-            Coins: 500,
-            Energy: 10,
-            BestScore: 1250,
-            TotalServed: 45,
+            Coins: user.Coins,             // อ่านค่าจริงจาก Database
+            Energy: user.Energy,           // อ่านค่าจริงจาก Database
+            BestScore: user.BestScore,     // อ่านค่าจริงจาก Database
+            TotalServed: user.TotalServed, // อ่านค่าจริงจาก Database
             Upgrades: new Dictionary<string, int> { { "mortar_golden", 1 } },
             CreatedAt: user.CreatedAtUtc.ToString("yyyy-MM-ddTHH:mm:ss") + "Z"));
     }
 
-     // ==========================================
+    // ==========================================
     // GET /api/v1/profile (Init Profile สำหรับเข้าเกม)
     // ==========================================
     [HttpGet("profile")]
@@ -193,9 +206,9 @@ public sealed class GameController(
             var response = new ProfileResponse(
                 Id: $"p_{user.Id:N}".Substring(0, 12),
                 DisplayName: user.DisplayName ?? user.UserName ?? $"ร้านใหม่ #{user.Id.ToString("N").Substring(0, 4).ToUpper()}",
-                Coins: 100,
-                BestScore: 0,
-                TotalServed: 0,
+                Coins: user.Coins,         // อ่านค่า Coins จริงจาก Database
+                BestScore: user.BestScore, // อ่านค่า BestScore จริงจาก Database
+                TotalServed: user.TotalServed, // อ่านค่า TotalServed จริงจาก Database
                 Upgrades: new Dictionary<string, int>(),
                 CreatedAt: user.CreatedAtUtc.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"),
                 JoinedDays: joinedDays,

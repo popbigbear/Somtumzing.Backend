@@ -203,6 +203,10 @@ public sealed class PlayerAuthController(
                     DisplayName = defaultDisplayName,
                     SecurityStamp = Guid.NewGuid().ToString("D"),
                     ConcurrencyStamp = Guid.NewGuid().ToString("D"),
+                    Coins = 100, // ค่าเริ่มต้น
+                    Energy = 10,
+                    BestScore = 0,
+                    TotalServed = 0,
                     CreatedAtUtc = now
                 };
 
@@ -235,9 +239,9 @@ public sealed class PlayerAuthController(
                     Id: $"p_{user.Id:N}".Substring(0, 12),
                     Username: user.UserName,
                     DisplayName: user.DisplayName ?? user.UserName ?? "ผู้เล่นใหม่",
-                    Coins: 100,
-                    BestScore: 0,
-                    TotalServed: 0,
+                    Coins: user.Coins,         // อ่านจาก Database จริง
+                    BestScore: user.BestScore, // อ่านจาก Database จริง
+                    TotalServed: user.TotalServed, // อ่านจาก Database จริง
                     Upgrades: new Dictionary<string, int>(),
                     CreatedAt: user.CreatedAtUtc.ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
                 )));
@@ -538,13 +542,19 @@ public sealed class PlayerAuthController(
         return Ok(new PlayerResponse(
             Id: $"p_{user.Id:N}".Substring(0, 12),
             Username: user.UserName,
-            DisplayName: user.DisplayName ?? user.UserName,
-            Coins: 100,
+            Coins: 0,
             BestScore: 0,
             TotalServed: 0,
             Upgrades: new Dictionary<string, int>(),
+            DisplayName: user.DisplayName ?? user.UserName,
             CreatedAt: user.CreatedAtUtc.ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
         ));
+
+        
+          // Coins: 0,
+          //  BestScore: 0,
+          //  TotalServed: 0,
+          //  Upgrades: new Dictionary<string, int>(),
     }
 
     // เพิ่ม Helper Methods สำหรับจัดการ Error 401 และ 403 ภายในคลาสนี้
@@ -611,7 +621,7 @@ public sealed class PlayerAuthController(
         int Coins,
         int BestScore,
         int TotalServed,
-        Dictionary<string, int> Upgrades,
+        Dictionary<string, int>? Upgrades,
         string CreatedAt);
 
     public sealed record UpdateDisplayNameRequest(

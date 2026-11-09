@@ -19,5 +19,11 @@ public sealed class ApplicationUser : IdentityUser<Guid>
     // เพิ่มฟิลด์ DisplayName สำหรับแสดงผลในเกมโดยเฉพาะ (แยกจาก UserName)
     public string? DisplayName { get; set; }
 
+    // เพิ่มฟิลด์ใหม่สำหรับเก็บข้อมูลจริงของผู้เล่น
+    public int Coins { get; set; } = 100;
+    public int Energy { get; set; } = 10;
+    public int BestScore { get; set; } = 0;
+    public int TotalServed { get; set; } = 0;
+
     public ICollection<RefreshToken> RefreshTokens { get; } = new List<RefreshToken>();
 }
