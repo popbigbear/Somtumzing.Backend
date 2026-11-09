@@ -74,26 +74,21 @@ public sealed class ShopController(
                 });
             }
 
-            // 4. รายการอัปเกรดจำลองตาม Schema ที่กำหนด
-            var upgrades = new List<UpgradeItem>
-            {
-                new(
-                    Id: "mortar_golden",
-                    Name: "ครกทองคำพิเศษ",
-                    Description: "เพิ่มความเร็วในการตำส้มตำขึ้น 25%",
-                    Cost: 150,
-                    Level: 1,
-                    MaxLevel: 5,
-                    IsUnlocked: true),
-                new(
-                    Id: "pestle_titanium",
-                    Name: "สากไทเทเนียม",
-                    Description: "ลดเวลาคูลดาวน์การทำเมนูพิเศษลง 10%",
-                    Cost: 300,
-                    Level: 0,
-                    MaxLevel: 3,
-                    IsUnlocked: false)
-            };
+           // ดึงข้อมูลอัปเกรดของผู้เล่น พร้อม Join กับตาราง Upgrades หลัก เพื่อเอาชื่อและรายละเอียดจริง
+            var query = from pu in database.PlayerUpgrades.AsNoTracking()
+                        join u in database.Upgrades.AsNoTracking() on pu.UpgradePK equals u.PK
+                        where pu.UserPK == userId
+                        select new UpgradeItem(
+                            Id: u.UpgradeKey,
+                            Name: u.DisplayName,
+                            Description: u.Description ?? "อัปเกรดเพิ่มความสามารถร้านค้า",
+                            Cost: (int)u.Price * (pu.Level + 1),
+                            Level: pu.Level,
+                            MaxLevel: 5,
+                            IsUnlocked: pu.Level > 0
+                        );
+
+            var upgrades = await query.ToListAsync(cancellationToken);
 
             logger.LogInformation(UpgradesFetchedEvent, "Shop upgrades fetched successfully for player {PlayerId}", userId);
 
