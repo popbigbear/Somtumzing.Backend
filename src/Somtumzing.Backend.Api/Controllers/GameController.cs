@@ -209,7 +209,7 @@ public sealed class GameController(
                 Coins: user.Coins,         // อ่านค่า Coins จริงจาก Database
                 BestScore: user.BestScore, // อ่านค่า BestScore จริงจาก Database
                 TotalServed: user.TotalServed, // อ่านค่า TotalServed จริงจาก Database
-                Upgrades: new Dictionary<string, int>(),
+                Upgrades: new Dictionary<string, int> { { "mortar_golden", 1 } }, // ปรับให้สอดคล้องกับ Endpoint อื่น
                 CreatedAt: user.CreatedAtUtc.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"),
                 JoinedDays: joinedDays,
                 RunsPlayed: 0);
