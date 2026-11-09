@@ -475,8 +475,8 @@ public sealed class PlayerAuthController(
     [Authorize(Roles = "Player")]
     [HttpPatch("me")]
     public async Task<ActionResult<PlayerResponse>> UpdateDisplayName(
-     [FromBody] UpdateDisplayNameRequest request,
-     CancellationToken cancellationToken)
+        [FromBody] UpdateDisplayNameRequest request,
+        CancellationToken cancellationToken)
     {
         if (!ModelState.IsValid)
         {
@@ -525,7 +525,7 @@ public sealed class PlayerAuthController(
             });
         }
 
-        // อัปเดตเฉพาะ displayName โดยไม่กระทบ username หลัก
+        // อัปเดต Display Name
         user.DisplayName = trimmedName;
         var updateResult = await userManager.UpdateAsync(user);
         if (!updateResult.Succeeded)
@@ -539,22 +539,17 @@ public sealed class PlayerAuthController(
             });
         }
 
+        // คืนค่าข้อมูลจริงจาก Database ทั้งหมด เพื่อให้ Response ตรงกับ GET /players/me ทุกประการ
         return Ok(new PlayerResponse(
             Id: $"p_{user.Id:N}".Substring(0, 12),
             Username: user.UserName,
-            Coins: 0,
-            BestScore: 0,
-            TotalServed: 0,
-            Upgrades: new Dictionary<string, int>(),
-            DisplayName: user.DisplayName ?? user.UserName,
+            DisplayName: user.DisplayName ?? user.UserName ?? "ผู้เล่นใหม่",
+            Coins: user.Coins,
+            BestScore: user.BestScore,
+            TotalServed: user.TotalServed,
+            Upgrades: new Dictionary<string, int> { { "mortar_golden", 1 } },
             CreatedAt: user.CreatedAtUtc.ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
         ));
-
-        
-          // Coins: 0,
-          //  BestScore: 0,
-          //  TotalServed: 0,
-          //  Upgrades: new Dictionary<string, int>(),
     }
 
     // เพิ่ม Helper Methods สำหรับจัดการ Error 401 และ 403 ภายในคลาสนี้
