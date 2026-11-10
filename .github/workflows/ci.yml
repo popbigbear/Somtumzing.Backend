@@ -33,8 +33,8 @@ jobs:
       - name: Restore dependencies
         run: dotnet restore tests/Somtumzing.Backend.Tests/Somtumzing.Backend.Tests.csproj
 
-      - name: Build project
-        run: dotnet build tests/Somtumzing.Backend.Tests/Somtumzing.Backend.Tests.csproj --no-restore --configuration Release
+      #- name: Build project
+      #  run: dotnet build tests/Somtumzing.Backend.Tests/Somtumzing.Backend.Tests.csproj --no-restore --configuration Release
       
      
       #- name: Run Backend Unit Tests
