@@ -55,11 +55,13 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-nuget-
 
+      # แก้ไข: ให้ dotnet restore ค้นหาไฟล์ Solution (.sln) ในโปรเจกต์อัตโนมัติ
       - name: Restore dependencies
         run: |
           echo "=== Restoring NuGet Packages (Verbose) ==="
           dotnet restore --verbosity normal
 
+      # แก้ไข: ให้ dotnet build ค้นหาไฟล์ Solution (.sln) อัตโนมัติเช่นกัน
       - name: Build project
         run: |
           echo "=== Building Solution (Diagnostic) ==="
