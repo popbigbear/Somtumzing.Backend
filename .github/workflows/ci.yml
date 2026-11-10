@@ -72,8 +72,8 @@ jobs:
         env:
           ConnectionStrings__GameDatabase: "Host=localhost;Port=5432;Database=railway;Username=postgres;Password=ldiBUJdqtKaGtBdMIfyAzurkmmsTKEnJ"
         run: |
-          echo "=== Running Unit Tests with Detailed Log ==="
-          dotnet test tests/Somtumzing.Backend.Tests/Somtumzing.Backend.Tests.csproj --no-build --configuration Release --verbosity detailed --logger "trx;LogFileName=test_results.trx"
+          echo "=== Running Unit Tests ==="
+          dotnet test tests/Somtumzing.Backend.Tests/Somtumzing.Backend.Tests.csproj --no-build --configuration Release --verbosity normal --logger "trx;LogFileName=test_results.trx"
 
       - name: Publish Test Results
         uses: dorny/test-reporter@v1
