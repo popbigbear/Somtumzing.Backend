@@ -68,13 +68,14 @@ jobs:
           echo "=== Building Solution (Diagnostic) ==="
           dotnet build src/Somtumzing.Backend.Api/Somtumzing.Backend.Api.csproj --no-restore --configuration Release --verbosity normal
 
+       # แก้ไข: เพิ่ม --blame และตัด --logger ที่ทำให้เกิด Argument Error ออกชั่วคราวเพื่อให้รันผ่าน
       - name: Run Backend Unit Tests
         env:
           ConnectionStrings__GameDatabase: "Host=localhost;Port=5432;Database=railway;Username=postgres;Password=ldiBUJdqtKaGtBdMIfyAzurkmmsTKEnJ"
         run: |
-          echo "=== Running Unit Tests ==="
-          dotnet test tests/Somtumzing.Backend.Tests/Somtumzing.Backend.Tests.csproj --no-build --configuration Release --verbosity normal --logger "trx;LogFileName=test_results.trx"
-
+          echo "=== Running Unit Tests Safely ==="
+          dotnet test tests/Somtumzing.Backend.Tests/Somtumzing.Backend.Tests.csproj --no-build --configuration Release --blame-crash
+      
       - name: Publish Test Results
         uses: dorny/test-reporter@v1
         if: always()
