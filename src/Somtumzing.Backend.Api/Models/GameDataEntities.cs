@@ -219,8 +219,12 @@ public sealed class Upgrade : IGameDataEntity
     public decimal Price { get; set; }
     public int MaxLevel { get; set; }
     public string EffectConfig { get; set; } = "{}";
+    
+    // เพิ่ม Property นี้เพื่อให้ตรงกับคอลัมน์ description ในตาราง Upgrades
+    public string? Description { get; set; } 
 }
 
+// เพิ่มคลาส PlayerUpgrade กลับเข้าไปให้ตรงกับ DDL จริงของตาราง PlayerUpgrades
 public sealed class PlayerUpgrade : IGameDataEntity
 {
     public Guid PK { get; set; }
@@ -230,10 +234,14 @@ public sealed class PlayerUpgrade : IGameDataEntity
     public DateTimeOffset UpdatedDate { get; set; }
     public Guid? UpdatedBy { get; set; }
     public string Status { get; set; } = string.Empty;
-    public Guid UserPK { get; set; }
+    
+    public Guid PlayerPK { get; set; }
     public Guid UpgradePK { get; set; }
     public int Level { get; set; }
     public DateTimeOffset? PurchasedDate { get; set; }
+
+    // Navigation Property สำหรับ JOIN ตาราง Upgrades
+    public Upgrade? Upgrade { get; set; }
 }
 
 public sealed class ChaosEventDefinition : IGameDataEntity

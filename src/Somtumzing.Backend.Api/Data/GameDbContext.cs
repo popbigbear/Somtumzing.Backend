@@ -47,6 +47,10 @@ public sealed class GameDbContext(DbContextOptions<GameDbContext> options)
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
+
+        // สั่งให้ EF Core ละเว้นการแมปตาราง PlayerUpgrades จาก Database ชั่วคราว
+        //builder.Ignore("PlayerUpgrade");
+
         ConfigureUser(builder);
         ConfigureRole(builder);
         ConfigureUserRole(builder);
@@ -253,17 +257,7 @@ public sealed class GameDbContext(DbContextOptions<GameDbContext> options)
                     "\"BestStars\" >= 0 AND \"TotalStars\" >= 0"));
         });
 
-        ConfigureRecord<PlayerUpgrade>(builder, "PlayerUpgrades", "PlayerUpgrade", "P", "ACTIVE", "INACTIVE");
-        builder.Entity<PlayerUpgrade>(entity =>
-        {
-            entity.Property(row => row.UserPK).HasColumnName("UserPK");
-            entity.Property(row => row.UpgradePK).HasColumnName("UpgradePK");
-            entity.HasIndex(row => new { row.UserPK, row.UpgradePK }).IsUnique();
-            entity.HasOne<ApplicationUser>().WithMany().HasForeignKey(row => row.UserPK)
-                .OnDelete(DeleteBehavior.Restrict);
-            entity.HasOne<Upgrade>().WithMany().HasForeignKey(row => row.UpgradePK)
-                .OnDelete(DeleteBehavior.Restrict);
-        });
+        
 
         ConfigureRecord<GameSession>(builder, "GameSessions", "Session", "J",
             "ACTIVE", "COMPLETED", "SETTLED", "ABANDONED", "INVALID");
@@ -352,15 +346,20 @@ public sealed class GameDbContext(DbContextOptions<GameDbContext> options)
             entity.HasIndex(row => row.UpgradeKey).IsUnique();
         });
 
+        // 2. เปิดใช้งานการ Config ตาราง PlayerUpgrades ตรงนี้ เพื่อบอก EF Core ว่ามี Primary Key อะไร
         ConfigureRecord<PlayerUpgrade>(builder, "PlayerUpgrades", "PlayerUpgrade", "P", "ACTIVE", "INACTIVE");
         builder.Entity<PlayerUpgrade>(entity =>
         {
-            entity.HasIndex(row => new { row.UserPK, row.UpgradePK }).IsUnique();
-            entity.HasOne<ApplicationUser>().WithMany().HasForeignKey(row => row.UserPK)
+            entity.Property(row => row.PlayerPK).HasColumnName("PlayerPK");
+            entity.Property(row => row.UpgradePK).HasColumnName("UpgradePK");
+
+            entity.HasIndex(row => new { row.PlayerPK, row.UpgradePK }).IsUnique();
+            entity.HasOne<ApplicationUser>().WithMany().HasForeignKey(row => row.PlayerPK)
                 .OnDelete(DeleteBehavior.Restrict);
             entity.HasOne<Upgrade>().WithMany().HasForeignKey(row => row.UpgradePK)
                 .OnDelete(DeleteBehavior.Restrict);
         });
+        
 
         ConfigureRecord<ChaosEventDefinition>(builder, "ChaosEventDefinitions", "ChaosDef", "Q",
             "DRAFT", "PUBLISHED", "RETIRED");

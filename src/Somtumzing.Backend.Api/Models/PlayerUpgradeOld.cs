@@ -1,9 +1,11 @@
+using System;
+
 namespace Somtumzing.Backend.Api.Models;
 
 /// <summary>
-/// โมเดลเก็บข้อมูลการซื้ออัปเกรดของผู้เล่น (PlayerUpgrades)
+/// โมเดลเก็บข้อมูลเลเวลอัปเกรดของผู้เล่น (PlayerUpgrades)
 /// </summary>
-public sealed class PlayerUpgrade : IGameDataEntity
+public sealed class PlayerUpgradeOld : IGameDataEntity
 {
     public Guid PK { get; set; }
     public string Code { get; set; } = string.Empty;
@@ -13,9 +15,10 @@ public sealed class PlayerUpgrade : IGameDataEntity
     public Guid? CreatedBy { get; set; }
     public Guid? UpdatedBy { get; set; }
 
-    // คอลัมน์จริงในตารางเดิมของคุณ
-    public Guid PlayerPK { get; set; }
-    public Guid UpgradePK { get; set; }
+    public Guid PlayerPK { get; set; } // ตรงกับ DDL "PlayerPK"
+    public Guid UpgradePK { get; set; } // ตรงกับ DDL "UpgradePK"
     public int Level { get; set; } = 0;
     public DateTimeOffset? PurchasedDate { get; set; }
+
+    public Upgrade? Upgrade { get; set; }
 }
