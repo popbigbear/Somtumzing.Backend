@@ -13,7 +13,6 @@ jobs:
       matrix:
         dotnet-version: ['10.0.x']
 
-    # ตั้งค่าบริการ PostgreSQL สำหรับใช้รันเทส (ทั้ง Unit Tests และ Postman Integration Tests)
     services:
       postgres:
         image: postgres:15-alpine
@@ -44,7 +43,9 @@ jobs:
           node-version: '20.x'
 
       - name: Install Newman
-        run: npm install -g newman
+        run: |
+          echo "=== Installing Newman CLI ==="
+          npm install -g newman --verbose
 
       - name: Restore Dependencies (Cached)
         uses: actions/cache@v4
@@ -55,16 +56,21 @@ jobs:
             ${{ runner.os }}-nuget-
 
       - name: Restore dependencies
-        run: dotnet restore
+        run: |
+          echo "=== Restoring NuGet Packages (Verbose) ==="
+          dotnet restore --verbosity normal
 
       - name: Build project
-        run: dotnet build --no-restore --configuration Release
+        run: |
+          echo "=== Building Solution (Diagnostic) ==="
+          dotnet build --no-restore --configuration Release --verbosity normal
 
-      # รัน Unit Tests (เปิดใช้งานจริงเพื่อตรวจสอบคุณภาพโค้ด)
       - name: Run Backend Unit Tests
         env:
-          ConnectionStrings__GameDatabase: "Host=postgres.railway.internal;Port=5432;Database=railway;Username=postgres;Password=ldiBUJdqtKaGtBdMIfyAzurkmmsTKEnJ"
-        run: dotnet test tests/Somtumzing.Backend.Tests/Somtumzing.Backend.Tests.csproj --no-build --configuration Release --verbosity normal --logger "trx;LogFileName=test_results.trx"
+          ConnectionStrings__GameDatabase: "Host=localhost;Port=5432;Database=railway;Username=postgres;Password=ldiBUJdqtKaGtBdMIfyAzurkmmsTKEnJ"
+        run: |
+          echo "=== Running Unit Tests with Detailed Log ==="
+          dotnet test tests/Somtumzing.Backend.Tests/Somtumzing.Backend.Tests.csproj --no-build --configuration Release --verbosity detailed --logger "trx;LogFileName=test_results.trx"
 
       - name: Publish Test Results
         uses: dorny/test-reporter@v1
@@ -74,21 +80,22 @@ jobs:
           path: '**/TestResults/*.trx'
           reporter: dotnet-trx
 
-      # สตาร์ท Backend API เพื่อเตรียมรัน Postman Tests
       - name: Start Backend API
         env:
-          ConnectionStrings__GameDatabase: "Host=Host=postgres.railway.internal;Port=5432;Database=railway;Username=postgres;Password=ldiBUJdqtKaGtBdMIfyAzurkmmsTKEnJ"
+          ConnectionStrings__GameDatabase: "Host=localhost;Port=5432;Database=railway;Username=postgres;Password=ldiBUJdqtKaGtBdMIfyAzurkmmsTKEnJ"
           Jwt__SigningKeyBase64: "VGhpcy1pcy1hLXZlcnktc2VjdXJlLWFuZC1sb25nLXNpZ25pbmcta2V5LWZvci1qd3QtYXV0aGVudGljYXRpb24="
           Jwt__Issuer: "somtumzing-backend"
           Jwt__Audience: "somtumzing-game"
         run: |
-          dotnet run --project src/Somtumzing.Backend.Api/Somtumzing.Backend.Api.csproj --configuration Release --no-build &
-          echo "Waiting for API to start..."
-          sleep 5
+          echo "=== Starting ASP.NET Core Backend API in Background ==="
+          dotnet run --project src/Somtumzing.Backend.Api/Somtumzing.Backend.Api.csproj --configuration Release --no-build --verbosity normal &
+          echo "Waiting for API to start and initialize database..."
+          sleep 8
 
-      # รัน Postman Collection ผ่าน Newman
       - name: Run Postman API Tests
         run: |
+          echo "=== Running Postman Collection via Newman ==="
           newman run src/Somtumzing.Backend.Api/tests/somtumzing.postman_collection.json \
             --env-var "baseUrl=http://localhost:5000" \
+            --verbose \
             --bail
