@@ -1,4 +1,4 @@
-name: .NET CI with Unit Tests
+name: Backend CI & API Tests
 
 on:
   push:
@@ -13,6 +13,22 @@ jobs:
       matrix:
         dotnet-version: ['10.0.x']
 
+    # ตั้งค่าบริการ PostgreSQL สำหรับใช้รันเทส (ทั้ง Unit Tests และ Postman Integration Tests)
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_DB: railway
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ldiBUJdqtKaGtBdMIfyAzurkmmsTKEnJ
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -21,6 +37,14 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: ${{ matrix.dotnet-version }}
+
+      - name: Setup Node.js (For Postman Newman Runner)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+
+      - name: Install Newman
+        run: npm install -g newman
 
       - name: Restore Dependencies (Cached)
         uses: actions/cache@v4
@@ -31,30 +55,40 @@ jobs:
             ${{ runner.os }}-nuget-
 
       - name: Restore dependencies
-        run: dotnet restore tests/Somtumzing.Backend.Tests/Somtumzing.Backend.Tests.csproj
+        run: dotnet restore
 
       - name: Build project
-        run: dotnet build tests/Somtumzing.Backend.Tests/Somtumzing.Backend.Tests.csproj --no-restore --configuration Release
-      
-     
-      #- name: Run Backend Unit Tests
-      #  run: dotnet test tests/Somtumzing.Backend.Tests/Somtumzing.Backend.Tests.csproj --configuration Release --verbosity normal
-      #
+        run: dotnet build --no-restore --configuration Release
 
-      #- name: Run unit tests
-      #  run: dotnet test tests/Somtumzing.Backend.Tests/Somtumzing.Backend.Tests.csproj --no-build --configuration Release --verbosity normal --logger "trx;LogFileName=test_results.trx"
+      # รัน Unit Tests (เปิดใช้งานจริงเพื่อตรวจสอบคุณภาพโค้ด)
+      - name: Run Backend Unit Tests
+        env:
+          ConnectionStrings__GameDatabase: "Host=postgres.railway.internal;Port=5432;Database=railway;Username=postgres;Password=ldiBUJdqtKaGtBdMIfyAzurkmmsTKEnJ"
+        run: dotnet test tests/Somtumzing.Backend.Tests/Somtumzing.Backend.Tests.csproj --no-build --configuration Release --verbosity normal --logger "trx;LogFileName=test_results.trx"
 
-      #- name: Publish Test Results
-      #  uses: dorny/test-reporter@v1
-      #  if: always()
-      #  with:
-      #    name: .NET Unit Tests Results
-      #    path: '**/TestResults/*.trx'
-      #    reporter: dotnet-trx
+      - name: Publish Test Results
+        uses: dorny/test-reporter@v1
+        if: always()
+        with:
+          name: .NET Unit Tests Results
+          path: '**/TestResults/*.trx'
+          reporter: dotnet-trx
 
-      #- name: Upload Test Results
-      #  uses: actions/upload-artifact@v4
-      #  if: always()
-      #  with:
-      #    name: test-results-${{ matrix.dotnet-version }}
-      #    path: '**/TestResults/*.trx'
+      # สตาร์ท Backend API เพื่อเตรียมรัน Postman Tests
+      - name: Start Backend API
+        env:
+          ConnectionStrings__GameDatabase: "Host=Host=postgres.railway.internal;Port=5432;Database=railway;Username=postgres;Password=ldiBUJdqtKaGtBdMIfyAzurkmmsTKEnJ"
+          Jwt__SigningKeyBase64: "VGhpcy1pcy1hLXZlcnktc2VjdXJlLWFuZC1sb25nLXNpZ25pbmcta2V5LWZvci1qd3QtYXV0aGVudGljYXRpb24="
+          Jwt__Issuer: "somtumzing-backend"
+          Jwt__Audience: "somtumzing-game"
+        run: |
+          dotnet run --project src/Somtumzing.Backend.Api/Somtumzing.Backend.Api.csproj --configuration Release --no-build &
+          echo "Waiting for API to start..."
+          sleep 5
+
+      # รัน Postman Collection ผ่าน Newman
+      - name: Run Postman API Tests
+        run: |
+          newman run src/Somtumzing.Backend.Api/tests/somtumzing.postman_collection.json \
+            --env-var "baseUrl=http://localhost:5000" \
+            --bail
