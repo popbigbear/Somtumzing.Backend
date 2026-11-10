@@ -24,6 +24,8 @@ public sealed class AuthControllerExtendedTests
     private readonly Mock<ILogger<PlayerAuthController>> _loggerMock;
     private readonly PlayerAuthController _controller;
     private readonly SystemController _systemController;
+    private readonly Mock<ILogger<SystemController>> _systemLoggerMock; // <-- เพิ่ม Mock Logger สำหรับ SystemController
+
 
     private static GameDbContext CreateInMemoryDatabase()
     {
@@ -52,6 +54,8 @@ public sealed class AuthControllerExtendedTests
         
         _auditLogWriterMock = new Mock<IAuditLogWriter>();
         _loggerMock = new Mock<ILogger<PlayerAuthController>>();
+        _systemLoggerMock = new Mock<ILogger<SystemController>>(); // <-- Init Mock Logger
+
 
         _controller = new PlayerAuthController(
             _database,
@@ -60,7 +64,7 @@ public sealed class AuthControllerExtendedTests
             _auditLogWriterMock.Object,
             _loggerMock.Object);
 
-        _systemController = new SystemController();
+        _systemController = new SystemController(_systemLoggerMock.Object);
     }
 
     [Fact]
