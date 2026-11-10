@@ -55,17 +55,18 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-nuget-
 
-      # แก้ไข: ให้ dotnet restore ค้นหาไฟล์ Solution (.sln) ในโปรเจกต์อัตโนมัติ
+      # ระบุ Path ไปยังโปรเจกต์ API และ Test ชัดเจน
       - name: Restore dependencies
         run: |
           echo "=== Restoring NuGet Packages (Verbose) ==="
-          dotnet restore --verbosity normal
+          dotnet restore src/Somtumzing.Backend.Api/Somtumzing.Backend.Api.csproj --verbosity normal
+          dotnet restore tests/Somtumzing.Backend.Tests/Somtumzing.Backend.Tests.csproj --verbosity normal
 
-      # แก้ไข: ให้ dotnet build ค้นหาไฟล์ Solution (.sln) อัตโนมัติเช่นกัน
+      # ระบุ Path ตอน Build เช่นกัน
       - name: Build project
         run: |
           echo "=== Building Solution (Diagnostic) ==="
-          dotnet build --no-restore --configuration Release --verbosity normal
+          dotnet build src/Somtumzing.Backend.Api/Somtumzing.Backend.Api.csproj --no-restore --configuration Release --verbosity normal
 
       - name: Run Backend Unit Tests
         env:
