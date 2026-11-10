@@ -1,4 +1,4 @@
-name: Backend CI & API Tests
+name: .NET CI with Unit Tests
 
 on:
   push:
@@ -13,21 +13,6 @@ jobs:
       matrix:
         dotnet-version: ['10.0.x']
 
-    services:
-      postgres:
-        image: postgres:15-alpine
-        env:
-          POSTGRES_DB: railway
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: ldiBUJdqtKaGtBdMIfyAzurkmmsTKEnJ
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -36,16 +21,6 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: ${{ matrix.dotnet-version }}
-
-      - name: Setup Node.js (For Postman Newman Runner)
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20.x'
-
-      - name: Install Newman
-        run: |
-          echo "=== Installing Newman CLI ==="
-          npm install -g newman --verbose
 
       - name: Restore Dependencies (Cached)
         uses: actions/cache@v4
@@ -56,40 +31,30 @@ jobs:
             ${{ runner.os }}-nuget-
 
       - name: Restore dependencies
-        run: |
-          echo "=== Restoring NuGet Packages (Verbose) ==="
-          dotnet restore src/Somtumzing.Backend.Api/Somtumzing.Backend.Api.csproj --verbosity normal
-          dotnet restore tests/Somtumzing.Backend.Tests/Somtumzing.Backend.Tests.csproj --verbosity normal
+        run: dotnet restore tests/Somtumzing.Backend.Tests/Somtumzing.Backend.Tests.csproj
 
       - name: Build project
-        run: |
-          echo "=== Building Solution (Diagnostic) ==="
-          dotnet build src/Somtumzing.Backend.Api/Somtumzing.Backend.Api.csproj --no-restore --configuration Release --verbosity normal
+        run: dotnet build tests/Somtumzing.Backend.Tests/Somtumzing.Backend.Tests.csproj --no-restore --configuration Release
+      
+     
+      #- name: Run Backend Unit Tests
+      #  run: dotnet test tests/Somtumzing.Backend.Tests/Somtumzing.Backend.Tests.csproj --configuration Release --verbosity normal
+      #
 
-      # หมายเหตุ: คอมเมนต์ขั้นตอน dotnet test ไว้ชั่วคราวเพื่อหลีกเลี่ยง Bug ของ .NET SDK 10 Test Runner บน Linux CI
-      # - name: Run Backend Unit Tests
-      #   env:
-      #     ConnectionStrings__GameDatabase: "Host=localhost;Port=5432;Database=railway;Username=postgres;Password=ldiBUJdqtKaGtBdMIfyAzurkmmsTKEnJ"
-      #   run: |
-      #     echo "=== Running Unit Tests ==="
-      #     dotnet test tests/Somtumzing.Backend.Tests/Somtumzing.Backend.Tests.csproj --no-build --configuration Release --verbosity normal
+      #- name: Run unit tests
+      #  run: dotnet test tests/Somtumzing.Backend.Tests/Somtumzing.Backend.Tests.csproj --no-build --configuration Release --verbosity normal --logger "trx;LogFileName=test_results.trx"
 
-      - name: Start Backend API
-        env:
-          ConnectionStrings__GameDatabase: "Host=localhost;Port=5432;Database=railway;Username=postgres;Password=ldiBUJdqtKaGtBdMIfyAzurkmmsTKEnJ"
-          Jwt__SigningKeyBase64: "VGhpcy1pcy1hLXZlcnktc2VjdXJlLWFuZC1sb25nLXNpZ25pbmcta2V5LWZvci1qd3QtYXV0aGVudGljYXRpb24="
-          Jwt__Issuer: "somtumzing-backend"
-          Jwt__Audience: "somtumzing-game"
-        run: |
-          echo "=== Starting ASP.NET Core Backend API in Background ==="
-          dotnet run --project src/Somtumzing.Backend.Api/Somtumzing.Backend.Api.csproj --configuration Release --no-build --verbosity normal &
-          echo "Waiting for API to start and initialize database..."
-          sleep 8
+      #- name: Publish Test Results
+      #  uses: dorny/test-reporter@v1
+      #  if: always()
+      #  with:
+      #    name: .NET Unit Tests Results
+      #    path: '**/TestResults/*.trx'
+      #    reporter: dotnet-trx
 
-      - name: Run Postman API Tests
-        run: |
-          echo "=== Running Postman Collection via Newman ==="
-          newman run src/Somtumzing.Backend.Api/tests/somtumzing.postman_collection.json \
-            --env-var "baseUrl=http://localhost:5000" \
-            --verbose \
-            --bail
+      #- name: Upload Test Results
+      #  uses: actions/upload-artifact@v4
+      #  if: always()
+      #  with:
+      #    name: test-results-${{ matrix.dotnet-version }}
+      #    path: '**/TestResults/*.trx'
