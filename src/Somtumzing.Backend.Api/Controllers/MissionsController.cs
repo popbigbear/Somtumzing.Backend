@@ -145,7 +145,7 @@ public sealed class MissionsController(
             {
                 return Conflict(new ApiErrorResponse(
                     Code: "VALIDATION_FAILED",
-                    Message: "ยังทำภารกิจไม่ครบ"));
+                    Message: "ยังทำภารกิจไม่ครบ เป้าหมาย: " + mission.TargetValue + " ครั้ง ปัจจุบัน: " + mission.Progress));
             }
 
             if (mission.IsClaimed)
