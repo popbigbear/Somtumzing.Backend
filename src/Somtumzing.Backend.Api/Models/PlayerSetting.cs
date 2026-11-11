@@ -22,5 +22,5 @@ public sealed class PlayerSetting : IGameDataEntity
     public bool Analytics { get; set; } = true;
 
     // Navigation Property
-    public ApplicationUser? User { get; set; }
+   // public ApplicationUser? User { get; set; }
 }
