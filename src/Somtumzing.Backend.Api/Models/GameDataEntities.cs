@@ -463,6 +463,41 @@ public sealed class PlayerLoadoutCard : IGameDataEntity
     public short SlotNumber { get; set; }
 }
 
+public sealed class PlayerMission : IGameDataEntity
+{
+    public Guid PK { get; set; }
+    public string Code { get; set; } = string.Empty;
+    public DateTimeOffset CreatedDate { get; set; }
+    public Guid? CreatedBy { get; set; }
+    public DateTimeOffset UpdatedDate { get; set; }
+    public Guid? UpdatedBy { get; set; }
+    public string Status { get; set; } = string.Empty;
+    public Guid PlayerPK { get; set; }
+    public string MissionKey { get; set; } = string.Empty;
+    public int Progress { get; set; }
+    public int TargetValue { get; set; }
+    
+    // เพิ่ม Properties เหล่านี้เพื่อให้ตรงกับการใช้งานใน Controller
+    public bool IsCompleted { get; set; }
+    public bool IsClaimed { get; set; }
+}
+
+// เพิ่ม Master Model สำหรับตาราง Missions
+public sealed class Mission : IGameDataEntity
+{
+    public Guid PK { get; set; }
+    public string Code { get; set; } = string.Empty;
+    public DateTimeOffset CreatedDate { get; set; }
+    public Guid? CreatedBy { get; set; }
+    public DateTimeOffset UpdatedDate { get; set; }
+    public Guid? UpdatedBy { get; set; }
+    public string Status { get; set; } = string.Empty;
+    public string MissionKey { get; set; } = string.Empty;
+    public string Title { get; set; } = string.Empty;
+    public string? Description { get; set; }
+    public int RewardCoins { get; set; }
+}
+
 public sealed class MatchSabotageEvent : IGameDataEntity
 {
     public Guid PK { get; set; }

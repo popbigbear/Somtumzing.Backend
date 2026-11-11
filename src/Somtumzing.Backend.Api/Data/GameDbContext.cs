@@ -41,9 +41,10 @@ public sealed class GameDbContext(DbContextOptions<GameDbContext> options)
     public DbSet<PlayerIngredient> PlayerIngredients => Set<PlayerIngredient>();
     public DbSet<PlayerCosmetic> PlayerCosmetics => Set<PlayerCosmetic>();
 
-
-    // เพิ่ม DbSet สำหรับ PlayerMission เพื่อให้ Controller เรียกใช้งานผ่าน database.PlayerMissions ได้อย่างถูกต้อง
+    
+    public DbSet<Mission> Missions => Set<Mission>();
     public DbSet<PlayerMission> PlayerMissions => Set<PlayerMission>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -57,6 +58,10 @@ public sealed class GameDbContext(DbContextOptions<GameDbContext> options)
         ConfigureRefreshToken(builder);
         ConfigureAuditLog(builder);
         ConfigureGameTables(builder);
+        // เรียกใช้งานเมธอดแยกสำหรับการตั้งค่าระบบ Missions
+        ConfigureMission(builder);
+        ConfigurePlayerMission(builder);
+
     }
 
     private static void ConfigureUser(ModelBuilder builder)
@@ -82,6 +87,32 @@ public sealed class GameDbContext(DbContextOptions<GameDbContext> options)
                 .HasForeignKey(user => user.UpdatedBy).OnDelete(DeleteBehavior.Restrict);
             entity.HasOne<ApplicationUser>().WithMany()
                 .HasForeignKey(user => user.SuspendedByAdminId).OnDelete(DeleteBehavior.Restrict);
+        });
+    }
+
+    
+    // เมธอดแยกสำหรับตั้งค่าตาราง Missions (Master Table)
+    private static void ConfigureMission(ModelBuilder builder)
+    {
+        ConfigureRecord<Mission>(builder, "Missions", "Mission", "6", "ACTIVE");
+        builder.Entity<Mission>(entity =>
+        {
+            entity.Property(row => row.MissionKey).HasMaxLength(64).IsRequired();
+            entity.Property(row => row.Title).HasMaxLength(160).IsRequired();
+            entity.HasIndex(row => row.MissionKey).IsUnique();
+        });
+    }
+
+    // เมธอดแยกสำหรับตั้งค่าตาราง PlayerMissions (Transaction Table)
+    private static void ConfigurePlayerMission(ModelBuilder builder)
+    {
+        ConfigureRecord<PlayerMission>(builder, "PlayerMissions", "PlayerMission", "3", "ACTIVE");
+        builder.Entity<PlayerMission>(entity =>
+        {
+            entity.Property(row => row.MissionKey).HasMaxLength(64).IsRequired();
+            entity.HasIndex(row => new { row.PlayerPK, row.MissionKey }).IsUnique();
+            entity.HasOne<ApplicationUser>().WithMany().HasForeignKey(row => row.PlayerPK)
+                .OnDelete(DeleteBehavior.Restrict);
         });
     }
 

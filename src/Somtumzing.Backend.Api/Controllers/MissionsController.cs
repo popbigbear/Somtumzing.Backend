@@ -50,8 +50,8 @@ public sealed class MissionsController(
                     PlayerPK = userId.Value,
                     MissionKey = "serve-10",
                     Progress = 0,
-                    Target = 10,
-                    Claimed = false,
+                    TargetValue = 10,
+                    IsClaimed = false,
                     CreatedDate = DateTimeOffset.UtcNow,
                     UpdatedDate = DateTimeOffset.UtcNow,
                     Status = "ACTIVE"
@@ -68,9 +68,9 @@ public sealed class MissionsController(
                 Title: GetMissionTitle(m.MissionKey),
                 Description: GetMissionDescription(m.MissionKey),
                 Progress: m.Progress,
-                Target: m.Target,
+                Target: m.TargetValue,
                 RewardCoins: 75,
-                Claimed: m.Claimed
+                Claimed: m.IsClaimed
             )).ToList();
 
             logger.LogInformation(MissionsEvent, "Missions fetched successfully for player {PlayerId}", userId);
@@ -138,7 +138,7 @@ public sealed class MissionsController(
             }
 
             // 2. ตรวจสอบว่าภารกิจทำสำเร็จหรือยัง (หากยังไม่ครบ ส่ง 409 Conflict พร้อมรหัส VALIDATION_FAILED)
-            if (mission.Progress < mission.Target)
+            if (mission.Progress < mission.TargetValue)
             {
                 return Conflict(new ApiErrorResponse(
                     Code: "VALIDATION_FAILED",
@@ -146,7 +146,7 @@ public sealed class MissionsController(
             }
 
             // 3. ตรวจสอบว่าเคยกดรับรางวัลไปแล้วหรือยัง (หากรับซ้ำ ส่ง 409 Conflict พร้อมรหัส MISSION_ALREADY_CLAIMED)
-            if (mission.Claimed)
+            if (mission.IsClaimed)
             {
                 return Conflict(new ApiErrorResponse(
                     Code: "MISSION_ALREADY_CLAIMED",
@@ -155,7 +155,7 @@ public sealed class MissionsController(
 
             // 4. ทำการอัปเดตสถานะ Claimed และบันทึกข้อมูล
             const int rewardCoins = 75;
-            mission.Claimed = true;
+            mission.IsClaimed = true;
             mission.UpdatedDate = DateTimeOffset.UtcNow;
 
             await database.SaveChangesAsync(cancellationToken);

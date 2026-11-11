@@ -5,6 +5,8 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Somtumzing.Backend.Api.Data;
 using Somtumzing.Backend.Api.Models;
+using System.Data.Common; // <-- เพิ่ม namespace นี้
+
 
 namespace Somtumzing.Backend.Api.Controllers;
 
@@ -18,6 +20,9 @@ public sealed class GameController(
     private static readonly EventId GameEvent = new(5001, "GameCoreEvent");
     // เพิ่ม EventId สำหรับ Inventory ตามหลัก Clean Code และ Logging มาตรฐาน
     private static readonly EventId InventoryFetchedEvent = new(6001, "InventoryFetched");
+    
+    // เพิ่ม EventId สำหรับ Mission ตามมาตรฐาน Logging
+    private static readonly EventId MissionEvent = new(7001, "MissionCoreEvent");
 
     // ==========================================
     // 1. POST /api/v1/runs (Start Run)
@@ -344,6 +349,232 @@ public sealed class GameController(
             });
         }
     }
+
+    // ==========================================
+    // POST /api/v1/missions/{missionId}/claim (เคลมรางวัลภารกิจ)
+    // ==========================================
+    [HttpPost("missions/{missionId}/claim")]
+    [ProducesResponseType(typeof(ClaimMissionResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<ClaimMissionResponse>> ClaimMission(
+        string missionId,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var userId = GetCurrentUserId();
+            if (userId == null) return UnauthorizedProblem();
+
+            var user = await database.Users
+                .SingleOrDefaultAsync(u => u.Id == userId.Value, cancellationToken);
+
+            if (user is null) return UnauthorizedProblem();
+            if (user.IsSuspended) return ForbiddenProblem();
+
+            // ค้นหาภารกิจของผู้เล่น
+            var mission = await database.PlayerMissions
+                .SingleOrDefaultAsync(m => m.PlayerPK == userId.Value && m.MissionKey == missionId, cancellationToken);
+
+            if (mission is null)
+            {
+                return NotFound(new ProblemDetails
+                {
+                    Type = "https://tools.ietf.org/html/rfc7807",
+                    Title = "Not Found",
+                    Status = StatusCodes.Status404NotFound,
+                    Detail = "Mission not found."
+                });
+            }
+
+            // ตรวจสอบว่าภารกิจทำสำเร็จหรือยัง และเคลมไปแล้วหรือยัง
+            if (!mission.IsCompleted)
+            {
+                return BadRequest(new ProblemDetails
+                {
+                    Type = "https://tools.ietf.org/html/rfc7807",
+                    Title = "Bad Request",
+                    Status = StatusCodes.Status400BadRequest,
+                    Detail = "Mission is not yet completed."
+                });
+            }
+
+            if (mission.IsClaimed)
+            {
+                return Conflict(new ProblemDetails
+                {
+                    Type = "https://tools.ietf.org/html/rfc7807",
+                    Title = "Conflict",
+                    Status = StatusCodes.Status409Conflict,
+                    Detail = "Mission reward has already been claimed."
+                });
+            }
+
+            // ให้รางวัลเหรียญ (Coins) และอัปเดตสถานะภารกิจว่าเคลมแล้ว
+            int rewardCoins = 50;
+            user.Coins += rewardCoins;
+            mission.IsClaimed = true;
+            mission.UpdatedDate = DateTimeOffset.UtcNow;
+
+            await database.SaveChangesAsync(cancellationToken);
+
+            logger.LogInformation(MissionEvent, "Mission {MissionId} claimed successfully by player {PlayerId}, earned {Coins} coins", missionId, userId, rewardCoins);
+
+            return Ok(new ClaimMissionResponse(
+                MissionId: missionId,
+                CoinsAwarded: rewardCoins,
+                TotalCoins: user.Coins));
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "An error occurred while claiming mission reward.");
+            return StatusCode(StatusCodes.Status500InternalServerError, new ProblemDetails
+            {
+                Type = "https://tools.ietf.org/html/rfc7807",
+                Title = "Backend Error",
+                Status = StatusCodes.Status500InternalServerError,
+                Detail = "An unexpected error occurred while claiming mission.",
+                Instance = HttpContext.Request.Path
+            });
+        }
+    }
+
+     // ตัวอย่างการใช้ ADO.NET ดึงข้อมูล Missions ร่วมกับการ JOIN
+    public async Task<List<MissionItem>> GetMissionsViaAdoNetAsync(Guid playerPk, CancellationToken cancellationToken)
+    {
+        var missions = new List<MissionItem>();
+        var connection = database.Database.GetDbConnection();
+
+        if (connection.State != System.Data.ConnectionState.Open)
+        {
+            await connection.OpenAsync(cancellationToken);
+        }
+
+        using var command = connection.CreateCommand();
+        command.CommandText = @"
+            SELECT pm.""MissionKey"", 
+                   COALESCE(m.""Title"", 'ภารกิจพิเศษ') AS ""Title"", 
+                   COALESCE(m.""Description"", 'ทำภารกิจเพื่อรับรางวัล') AS ""Description"", 
+                   pm.""Progress"", 
+                   pm.""TargetValue"", 
+                   COALESCE(m.""RewardCoins"", 50) AS ""RewardCoins"", 
+                   pm.""IsCompleted"", 
+                   pm.""IsClaimed""
+            FROM public.""PlayerMissions"" pm
+            LEFT JOIN public.""Missions"" m ON pm.""MissionKey"" = m.""MissionKey""
+            WHERE pm.""PlayerPK"" = @PlayerPK;
+        ";
+
+        var parameter = command.CreateParameter();
+        parameter.ParameterName = "@PlayerPK";
+        parameter.Value = playerPk;
+        command.Parameters.Add(parameter);
+
+        using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            missions.Add(new MissionItem(
+                Id: reader.GetString(0),
+                Title: reader.GetString(1),
+                Description: reader.GetString(2),
+                Progress: reader.GetInt32(3),
+                Target: reader.GetInt32(4),
+                RewardCoins: reader.GetInt32(5),
+                IsCompleted: reader.GetBoolean(6),
+                IsClaimed: reader.GetBoolean(7)
+            ));
+        }
+
+        return missions;
+    }
+
+    private static string GetMissionTitlexx(string key) => key switch
+    {
+        "daily_serve_10" => "พ่อค้ามือใหม่",
+        "high_score_1000" => "เซียนส้มตำพันแต้ม",
+        _ => "ภารกิจพิเศษ"
+    };
+
+    private static string GetMissionDescriptionxx(string key) => key switch
+    {
+        "daily_serve_10" => "เสิร์ฟส้มตำให้ลูกค้าครบ 10 จาน",
+        "high_score_1000" => "ทำคะแนนสะสมให้ถึง 1,000 คะแนนใน 1 รอบ",
+        _ => "ทำภารกิจในเกมให้สำเร็จเพื่อรับรางวัล"
+    };
+
+    [HttpGet("missions")]
+    [ProducesResponseType(typeof(MissionsResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<ActionResult<MissionsResponse>> GetMissions(CancellationToken cancellationToken)
+    {
+        try
+        {
+            var userId = GetCurrentUserId();
+            if (userId == null) return UnauthorizedProblem();
+
+            var user = await database.Users
+                .AsNoTracking()
+                .SingleOrDefaultAsync(u => u.Id == userId.Value, cancellationToken);
+
+            if (user is null) return UnauthorizedProblem();
+            if (user.IsSuspended) return ForbiddenProblem();
+
+            // EF Core: JOIN ตาราง PlayerMissions กับ Master Table (Missions)
+            var query = from pm in database.PlayerMissions.AsNoTracking()
+                        join m in database.Missions.AsNoTracking() on pm.MissionKey equals m.MissionKey into missionDetails
+                        from m in missionDetails.DefaultIfEmpty()
+                        where pm.PlayerPK == userId.Value
+                        select new MissionItem(
+                            Id: pm.MissionKey,
+                            Title: m != null ? m.Title : "ภารกิจพิเศษ",
+                            Description: m != null ? m.Description : "ทำภารกิจในเกมให้สำเร็จเพื่อรับรางวัล",
+                            Progress: pm.Progress,
+                            Target: pm.TargetValue,
+                            RewardCoins: m != null ? m.RewardCoins : 50,
+                            IsCompleted: pm.IsCompleted,
+                            IsClaimed: pm.IsClaimed
+                        );
+
+            var missions = await query.ToListAsync(cancellationToken);
+
+            logger.LogInformation(MissionEvent, "Missions fetched successfully via EF Core for player {PlayerId}", userId);
+
+            return Ok(new MissionsResponse(missions));
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "An error occurred while fetching player missions.");
+            return StatusCode(StatusCodes.Status500InternalServerError, new ProblemDetails
+            {
+                Type = "https://tools.ietf.org/html/rfc7807",
+                Title = "Backend Error",
+                Status = StatusCodes.Status500InternalServerError,
+                Detail = "An unexpected error occurred while loading missions.",
+                Instance = HttpContext.Request.Path
+            });
+        }
+    }
+
+     // DTO Records สำหรับ Missions
+    public sealed record MissionsResponse(List<MissionItem> Missions);
+    public sealed record MissionItem(
+        string Id,
+        string Title,
+        string Description,
+        int Progress,
+        int Target,
+        int RewardCoins,
+        bool IsCompleted,
+        bool IsClaimed);
+    public sealed record ClaimMissionResponse(
+        string MissionId,
+        int CoinsAwarded,
+        int TotalCoins);
 
      public sealed record InventoryResponse(
         int Energy,

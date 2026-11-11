@@ -5,7 +5,7 @@ namespace Somtumzing.Backend.Api.Models;
 /// <summary>
 /// โมเดลเก็บสถานะภารกิจและความคืบหน้าของผู้เล่น (Player Missions)
 /// </summary>
-public sealed class PlayerMission : IGameDataEntity
+public sealed class PlayerMissionxx : IGameDataEntity
 {
     // บรรทัดที่ 12: กำหนด Primary Key (PK) ตามโครงสร้าง IGameDataEntity
     public Guid PK { get; set; }
@@ -36,7 +36,7 @@ public sealed class PlayerMission : IGameDataEntity
     public int Progress { get; set; } = 0;
     
     // บรรทัดที่ 39: เป้าหมายที่ต้องทำให้สำเร็จ
-    public int Target { get; set; } = 10;
+    public int TargetValue { get; set; } = 10;
     
     // บรรทัดที่ 42: สถานะการกดรับรางวัล
     public bool Claimed { get; set; } = false;
