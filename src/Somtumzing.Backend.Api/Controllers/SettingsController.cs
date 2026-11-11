@@ -17,7 +17,7 @@ public sealed class SettingsController(
 {
     private static readonly EventId SettingsEvent = new(7001, "PlayerSettingsEvent");
 
-    /// <summary>
+     /// <summary>
     /// ดึงข้อมูลการตั้งค่าของผู้เล่นปัจจุบัน
     /// GET /api/v1/settings
     /// </summary>
@@ -30,23 +30,29 @@ public sealed class SettingsController(
     {
         try
         {
-            var userId = GetCurrentUserId();
-            if (userId == null) return UnauthorizedProblem();
+            // ดึงและแปลง Guid ของผู้เล่นอย่างปลอดภัยจาก Claims
+            var subject = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
+            if (!Guid.TryParse(subject, out var playerPk))
+            {
+                return UnauthorizedProblem();
+            }
 
-            var user = await database.Users.AsNoTracking().SingleOrDefaultAsync(u => u.Id == userId, cancellationToken);
+            var user = await database.Users.AsNoTracking().SingleOrDefaultAsync(u => u.Id == playerPk, cancellationToken);
             if (user is null) return UnauthorizedProblem();
             if (user.IsSuspended) return ForbiddenProblem();
 
-            // ค้นหา Setting ของผู้เล่น หากยังไม่มีให้สร้างค่าเริ่มต้น (Default)
+            // ค้นหา Setting ของผู้เล่นโดยใช้ playerPk
             var settings = await database.PlayerSettings
-                .SingleOrDefaultAsync(s => s.PlayerPK == userId.Value, cancellationToken);
+                .SingleOrDefaultAsync(s => s.PlayerPK == playerPk, cancellationToken);
 
             if (settings is null)
             {
                 settings = new PlayerSetting
                 {
                     PK = Guid.NewGuid(),
-                    PlayerPK = userId.Value,
+                    Code = $"SET_{Guid.NewGuid():N}".Substring(0, 16),
+                    Status = "ACTIVE",
+                    PlayerPK = playerPk,
                     Sound = true,
                     Language = "th",
                     Analytics = true,
@@ -58,7 +64,7 @@ public sealed class SettingsController(
                 await database.SaveChangesAsync(cancellationToken);
             }
 
-            logger.LogInformation(SettingsEvent, "Settings fetched for player {PlayerId}", userId);
+            logger.LogInformation(SettingsEvent, "Settings fetched for player {PlayerId}", playerPk);
 
             return Ok(new SettingsResponse(
                 Sound: settings.Sound,
@@ -117,7 +123,6 @@ public sealed class SettingsController(
     {
         try
         {
-            // 1. ตรวจสอบความถูกต้องของ ModelState
             if (!ModelState.IsValid)
             {
                 return ValidationProblem(new ValidationProblemDetails(ModelState)
@@ -130,23 +135,29 @@ public sealed class SettingsController(
                 });
             }
 
-            var userId = GetCurrentUserId();
-            if (userId == null) return UnauthorizedProblem();
+            // ดึงและแปลง Guid ของผู้เล่นอย่างปลอดภัยจาก Claims
+            var subject = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
+            if (!Guid.TryParse(subject, out var playerPk))
+            {
+                return UnauthorizedProblem();
+            }
 
-            var user = await database.Users.AsNoTracking().SingleOrDefaultAsync(u => u.Id == userId, cancellationToken);
+            var user = await database.Users.AsNoTracking().SingleOrDefaultAsync(u => u.Id == playerPk, cancellationToken);
             if (user is null) return UnauthorizedProblem();
             if (user.IsSuspended) return ForbiddenProblem();
 
-            // 2. ค้นหา Setting ของผู้เล่นในฐานข้อมูล หากยังไม่มีให้สร้างใหม่
+            // ค้นหา Setting ของผู้เล่นในฐานข้อมูลโดยใช้ playerPk
             var settings = await database.PlayerSettings
-                .SingleOrDefaultAsync(s => s.PlayerPK == userId, cancellationToken);
+                .SingleOrDefaultAsync(s => s.PlayerPK == playerPk, cancellationToken);
 
             if (settings is null)
             {
                 settings = new PlayerSetting
                 {
                     PK = Guid.NewGuid(),
-                    PlayerPK = userId.Value,
+                    Code = $"SET_{Guid.NewGuid():N}".Substring(0, 16),
+                    Status = "ACTIVE",
+                    PlayerPK = playerPk,
                     Sound = true,
                     Language = "th",
                     Analytics = true,
@@ -156,7 +167,7 @@ public sealed class SettingsController(
                 database.PlayerSettings.Add(settings);
             }
 
-            // 3. อัปเดตเฉพาะฟิลด์ที่มีการส่งค่าเข้ามา (Partial Update)
+            // อัปเดตเฉพาะฟิลด์ที่มีการส่งค่าเข้ามา (Partial Update)
             if (request.Sound.HasValue)
             {
                 settings.Sound = request.Sound.Value;
@@ -173,11 +184,11 @@ public sealed class SettingsController(
             }
 
             settings.UpdatedDate = DateTimeOffset.UtcNow;
-            settings.UpdatedBy = userId;
+            settings.UpdatedBy = playerPk;
 
             await database.SaveChangesAsync(cancellationToken);
 
-            logger.LogInformation(SettingsEvent, "Settings updated successfully for player {PlayerId}", userId);
+            logger.LogInformation(SettingsEvent, "Settings updated successfully for player {PlayerId}", playerPk);
 
             return Ok(new SettingsResponse(
                 Sound: settings.Sound,
