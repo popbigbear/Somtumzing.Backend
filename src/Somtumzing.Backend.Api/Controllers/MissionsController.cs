@@ -106,7 +106,7 @@ public sealed class MissionsController(
     // ==========================================
     // POST /api/v1/missions/{missionId}/claim (Claim Mission Reward)
     // ==========================================
-    [HttpPost("{missionId}/claim")]
+     [HttpPost("{missionId}/claim")]
     [ProducesResponseType(typeof(ClaimMissionResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -119,16 +119,20 @@ public sealed class MissionsController(
     {
         try
         {
-            var userId = GetCurrentUserId();
-            if (userId == null) return UnauthorizedProblem();
+            // ปรับปรุงการดึงและตรวจสอบผู้เล่นจาก Claims โดยตรงอย่างปลอดภัย
+            var subject = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
+            if (!Guid.TryParse(subject, out var playerPk))
+            {
+                return UnauthorizedProblem();
+            }
 
-            var user = await database.Users.SingleOrDefaultAsync(u => u.Id == userId, cancellationToken);
+            var user = await database.Users.SingleOrDefaultAsync(u => u.Id == playerPk, cancellationToken);
             if (user is null) return UnauthorizedProblem();
             if (user.IsSuspended) return ForbiddenProblem();
 
-            // 1. ค้นหาภารกิจของผู้เล่น (หากไม่พบ ส่ง 404 Not Found พร้อมรหัส NOT_FOUND)
+            // ค้นหาภารกิจของผู้เล่นโดยใช้ playerPk ที่ผ่านการแปลงและตรวจสอบแล้ว
             var mission = await database.PlayerMissions
-                .SingleOrDefaultAsync(m => m.PlayerPK == userId.Value && m.MissionKey == missionId, cancellationToken);
+                .SingleOrDefaultAsync(m => m.PlayerPK == playerPk && m.MissionKey == missionId, cancellationToken);
 
             if (mission is null)
             {
@@ -137,7 +141,6 @@ public sealed class MissionsController(
                     Message: "ไม่พบภารกิจ"));
             }
 
-            // 2. ตรวจสอบว่าภารกิจทำสำเร็จหรือยัง (หากยังไม่ครบ ส่ง 409 Conflict พร้อมรหัส VALIDATION_FAILED)
             if (mission.Progress < mission.TargetValue)
             {
                 return Conflict(new ApiErrorResponse(
@@ -145,7 +148,6 @@ public sealed class MissionsController(
                     Message: "ยังทำภารกิจไม่ครบ"));
             }
 
-            // 3. ตรวจสอบว่าเคยกดรับรางวัลไปแล้วหรือยัง (หากรับซ้ำ ส่ง 409 Conflict พร้อมรหัส MISSION_ALREADY_CLAIMED)
             if (mission.IsClaimed)
             {
                 return Conflict(new ApiErrorResponse(
@@ -153,22 +155,21 @@ public sealed class MissionsController(
                     Message: "รับรางวัลภารกิจไปแล้ว"));
             }
 
-            // 4. ทำการอัปเดตสถานะ Claimed และบันทึกข้อมูล
             const int rewardCoins = 75;
+            user.Coins += rewardCoins;
             mission.IsClaimed = true;
             mission.UpdatedDate = DateTimeOffset.UtcNow;
 
             await database.SaveChangesAsync(cancellationToken);
 
-            logger.LogInformation(MissionsEvent, "Player {PlayerId} claimed reward for mission {MissionId}", userId, missionId);
+            logger.LogInformation(MissionsEvent, "Player {PlayerId} claimed reward for mission {MissionId}", playerPk, missionId);
 
-            // 5. ส่งคืน Response ตาม Schema ที่กำหนด
             var updatedPlayer = new PlayerProfileResponse(
                 Id: $"p_{user.Id:N}".Substring(0, 12),
                 DisplayName: user.DisplayName ?? user.UserName ?? $"ร้านใหม่ #{user.Id.ToString("N").Substring(0, 4).ToUpper()}",
-                Coins: 100 + rewardCoins,
-                BestScore: 0,
-                TotalServed: mission.Progress,
+                Coins: user.Coins,
+                BestScore: user.BestScore,
+                TotalServed: user.TotalServed,
                 Upgrades: new Dictionary<string, int>(),
                 CreatedAt: user.CreatedAtUtc.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"),
                 JoinedDays: Math.Max(1, (int)(DateTimeOffset.UtcNow - user.CreatedAtUtc).TotalDays),
