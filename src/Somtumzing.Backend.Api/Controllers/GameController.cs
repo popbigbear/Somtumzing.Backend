@@ -443,7 +443,7 @@ public sealed class GameController(
     // }
 
      // ตัวอย่างการใช้ ADO.NET ดึงข้อมูล Missions ร่วมกับการ JOIN
-    public async Task<List<MissionItem>> GetMissionsViaAdoNetAsync(Guid playerPk, CancellationToken cancellationToken)
+    private async Task<List<MissionItem>> GetMissionsViaAdoNetAsync(Guid playerPk, CancellationToken cancellationToken)
     {
         var missions = new List<MissionItem>();
         var connection = database.Database.GetDbConnection();
@@ -546,6 +546,201 @@ public sealed class GameController(
     //         });
     //     }
     // }
+
+     // ==========================================
+    // GET /api/v1/daily-rewards (ดึงสถานะรางวัลประจำวัน)
+    // ==========================================
+    [HttpGet("daily-rewards")]
+    [ProducesResponseType(typeof(DailyRewardsResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<ActionResult<DailyRewardsResponse>> GetDailyRewards(CancellationToken cancellationToken)
+    {
+        try
+        {
+            var subject = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
+            if (!Guid.TryParse(subject, out var playerPk)) return UnauthorizedProblem();
+
+            var user = await database.Users.AsNoTracking().SingleOrDefaultAsync(u => u.Id == playerPk, cancellationToken);
+            if (user is null) return UnauthorizedProblem();
+            if (user.IsSuspended) return ForbiddenProblem();
+
+            var dailyState = await database.PlayerDailyStates
+                .SingleOrDefaultAsync(d => d.PlayerPK == playerPk, cancellationToken);
+
+            var today = DateTimeOffset.UtcNow.Date;
+
+            if (dailyState is null)
+            {
+                dailyState = new PlayerDailyState
+                {
+                    PK = Guid.NewGuid(),
+                    Code = $"DLY_{Guid.NewGuid():N}".Substring(0, 16),
+                    Status = "ACTIVE",
+                    PlayerPK = playerPk,
+                    CurrentStreak = 0,
+                    TodayClaimed = false,
+                    CreatedDate = DateTimeOffset.UtcNow,
+                    UpdatedDate = DateTimeOffset.UtcNow
+                };
+                database.PlayerDailyStates.Add(dailyState);
+                await database.SaveChangesAsync(cancellationToken);
+            }
+            else
+            {
+                // ตรวจสอบว่าข้ามวันหรือไม่ หากข้ามวันและไม่ได้กดรับเมื่อวาน ให้รีเซ็ต Streak หรือจัดการตามรอบวัน
+                if (dailyState.LastClaimedDate.HasValue && dailyState.LastClaimedDate.Value.Date < today.AddDays(-1))
+                {
+                    dailyState.CurrentStreak = 0;
+                    dailyState.TodayClaimed = false;
+                    dailyState.UpdatedDate = DateTimeOffset.UtcNow;
+                    await database.SaveChangesAsync(cancellationToken);
+                }
+                else if (dailyState.LastClaimedDate.HasValue && dailyState.LastClaimedDate.Value.Date == today)
+                {
+                    dailyState.TodayClaimed = true;
+                }
+                else if (dailyState.LastClaimedDate.HasValue && dailyState.LastClaimedDate.Value.Date < today)
+                {
+                    dailyState.TodayClaimed = false;
+                }
+            }
+
+            // สร้างปฏิทินรางวัล 7 วัน
+            var rewards = new List<DailyRewardItem>
+            {
+                new(Day: 1, Coins: 50, Claimed: dailyState.CurrentStreak >= 1 && dailyState.TodayClaimed),
+                new(Day: 2, Coins: 75, Claimed: dailyState.CurrentStreak >= 2 && dailyState.TodayClaimed),
+                new(Day: 3, Coins: 100, Claimed: dailyState.CurrentStreak >= 3 && dailyState.TodayClaimed),
+                new(Day: 4, Coins: 125, Claimed: dailyState.CurrentStreak >= 4 && dailyState.TodayClaimed),
+                new(Day: 5, Coins: 150, Claimed: dailyState.CurrentStreak >= 5 && dailyState.TodayClaimed),
+                new(Day: 6, Coins: 200, Claimed: dailyState.CurrentStreak >= 6 && dailyState.TodayClaimed),
+                new(Day: 7, Coins: 300, Claimed: dailyState.CurrentStreak >= 7 && dailyState.TodayClaimed)
+            };
+
+            return Ok(new DailyRewardsResponse(
+                CurrentStreak: dailyState.CurrentStreak,
+                TodayClaimed: dailyState.TodayClaimed,
+                Rewards: rewards));
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "An error occurred while fetching daily rewards.");
+            return StatusCode(StatusCodes.Status500InternalServerError, new ProblemDetails
+            {
+                Type = "https://tools.ietf.org/html/rfc7807",
+                Title = "Backend Error",
+                Status = StatusCodes.Status500InternalServerError,
+                Detail = "An unexpected error occurred while loading daily rewards."
+            });
+        }
+    }
+
+    // ==========================================
+    // POST /api/v1/daily-rewards/claim (รับรางวัลประจำวัน)
+    // ==========================================
+    [HttpPost("daily-rewards/claim")]
+    [ProducesResponseType(typeof(ClaimDailyRewardResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<ActionResult<ClaimDailyRewardResponse>> ClaimDailyReward(CancellationToken cancellationToken)
+    {
+        try
+        {
+            var subject = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
+            if (!Guid.TryParse(subject, out var playerPk)) return UnauthorizedProblem();
+
+            var user = await database.Users.SingleOrDefaultAsync(u => u.Id == playerPk, cancellationToken);
+            if (user is null) return UnauthorizedProblem();
+            if (user.IsSuspended) return ForbiddenProblem();
+
+            var dailyState = await database.PlayerDailyStates
+                .SingleOrDefaultAsync(d => d.PlayerPK == playerPk, cancellationToken);
+
+            var today = DateTimeOffset.UtcNow.Date;
+
+            if (dailyState is null)
+            {
+                dailyState = new PlayerDailyState
+                {
+                    PK = Guid.NewGuid(),
+                    Code = $"DLY_{Guid.NewGuid():N}".Substring(0, 16),
+                    Status = "ACTIVE",
+                    PlayerPK = playerPk,
+                    CurrentStreak = 0,
+                    TodayClaimed = false
+                };
+                database.PlayerDailyStates.Add(dailyState);
+            }
+
+            // ตรวจสอบว่าวันนี้รับไปแล้วหรือยัง
+            if (dailyState.LastClaimedDate.HasValue && dailyState.LastClaimedDate.Value.Date == today)
+            {
+                return Conflict(new ProblemDetails
+                {
+                    Type = "https://tools.ietf.org/html/rfc7807",
+                    Title = "Conflict",
+                    Status = StatusCodes.Status409Conflict,
+                    Detail = "Daily reward for today has already been claimed."
+                });
+            }
+
+            // คำนวณ Streak และรางวัลเหรียญ
+            if (dailyState.LastClaimedDate.HasValue && dailyState.LastClaimedDate.Value.Date == today.AddDays(-1))
+            {
+                dailyState.CurrentStreak = (dailyState.CurrentStreak % 7) + 1;
+            }
+            else
+            {
+                dailyState.CurrentStreak = 1;
+            }
+
+            int rewardCoins = dailyState.CurrentStreak switch
+            {
+                1 => 50,
+                2 => 75,
+                3 => 100,
+                4 => 125,
+                5 => 150,
+                6 => 200,
+                7 => 300,
+                _ => 50
+            };
+
+            user.Coins += rewardCoins;
+            dailyState.TodayClaimed = true;
+            dailyState.LastClaimedDate = DateTimeOffset.UtcNow;
+            dailyState.UpdatedDate = DateTimeOffset.UtcNow;
+
+            await database.SaveChangesAsync(cancellationToken);
+
+            logger.LogInformation(GameEvent, "Player {PlayerId} claimed daily reward. Streak: {Streak}, Coins: {Coins}", playerPk, dailyState.CurrentStreak, rewardCoins);
+
+            return Ok(new ClaimDailyRewardResponse(
+                RewardCoins: rewardCoins,
+                CurrentStreak: dailyState.CurrentStreak,
+                TotalCoins: user.Coins));
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "An error occurred while claiming daily reward.");
+            return StatusCode(StatusCodes.Status500InternalServerError, new ProblemDetails
+            {
+                Type = "https://tools.ietf.org/html/rfc7807",
+                Title = "Backend Error",
+                Status = StatusCodes.Status500InternalServerError,
+                Detail = "An unexpected error occurred while claiming daily reward."
+            });
+        }
+    }
+
+    // DTO Records เพิ่มเติมสำหรับ Daily Rewards
+    public sealed record DailyRewardItem(int Day, int Coins, bool Claimed);
+    public sealed record DailyRewardsResponse(int CurrentStreak, bool TodayClaimed, List<DailyRewardItem> Rewards);
+    public sealed record ClaimDailyRewardResponse(int RewardCoins, int CurrentStreak, int TotalCoins);
 
      // DTO Records สำหรับ Missions
     public sealed record MissionsResponse(List<MissionItem> Missions);

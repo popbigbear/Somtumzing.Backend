@@ -11,6 +11,48 @@ public interface IGameDataEntity
     string Status { get; set; }
 }
 
+// ... existing code ...
+public sealed class MatchSabotageEvent : IGameDataEntity
+{
+    public Guid PK { get; set; }
+    public string Code { get; set; } = string.Empty;
+    public DateTimeOffset CreatedDate { get; set; }
+    public Guid? CreatedBy { get; set; }
+    public DateTimeOffset UpdatedDate { get; set; }
+    public Guid? UpdatedBy { get; set; }
+    public string Status { get; set; } = string.Empty;
+    public Guid MatchPK { get; set; }
+    public Guid SourceParticipantPK { get; set; }
+    public Guid TargetParticipantPK { get; set; }
+    public Guid CardPK { get; set; }
+    public long EventSequence { get; set; }
+    public DateTimeOffset TriggeredDate { get; set; }
+    public DateTimeOffset? RespondByDate { get; set; }
+    public DateTimeOffset? ResolvedDate { get; set; }
+    public string? CounterActionCode { get; set; }
+    public string? ResultCode { get; set; }
+    public decimal EnergySpentPct { get; set; }
+    public string EffectSnapshot { get; set; } = "{}";
+    public DateTimeOffset? ImmunityUntilDate { get; set; }
+}
+
+
+// เพิ่ม Model สำหรับระบบ Daily Rewards
+public sealed class PlayerDailyState : IGameDataEntity
+{
+    public Guid PK { get; set; }
+    public string Code { get; set; } = string.Empty;
+    public DateTimeOffset CreatedDate { get; set; }
+    public Guid? CreatedBy { get; set; }
+    public DateTimeOffset UpdatedDate { get; set; }
+    public Guid? UpdatedBy { get; set; }
+    public string Status { get; set; } = string.Empty;
+    public Guid PlayerPK { get; set; }
+    public int CurrentStreak { get; set; }
+    public DateTimeOffset? LastClaimedDate { get; set; }
+    public bool TodayClaimed { get; set; }
+}
+
 public sealed class CodeCounter : IGameDataEntity
 {
     public Guid PK { get; set; }

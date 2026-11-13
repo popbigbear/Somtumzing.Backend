@@ -44,6 +44,8 @@ public sealed class GameDbContext(DbContextOptions<GameDbContext> options)
     
     public DbSet<Mission> Missions => Set<Mission>();
     public DbSet<PlayerMission> PlayerMissions => Set<PlayerMission>();
+    // เพิ่ม DbSet สำหรับ Daily Rewards
+    public DbSet<PlayerDailyState> PlayerDailyStates => Set<PlayerDailyState>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -61,7 +63,23 @@ public sealed class GameDbContext(DbContextOptions<GameDbContext> options)
         // เรียกใช้งานเมธอดแยกสำหรับการตั้งค่าระบบ Missions
         ConfigureMission(builder);
         ConfigurePlayerMission(builder);
+        // เรียกใช้งาน Configure สำหรับ Daily Rewards
+        ConfigurePlayerDailyState(builder);
 
+    }
+
+    
+    // เมธอดสำหรับตั้งค่าตาราง PlayerDailyRewards
+    private static void ConfigurePlayerDailyState(ModelBuilder builder)
+    {
+        ConfigureRecord<PlayerDailyState>(builder, "PlayerDailyRewards", "DailyReward", "7", "ACTIVE");
+        builder.Entity<PlayerDailyState>(entity =>
+        {
+            entity.Property(row => row.PlayerPK).HasColumnName("PlayerPK");
+            entity.HasIndex(row => row.PlayerPK).IsUnique();
+            entity.HasOne<ApplicationUser>().WithMany().HasForeignKey(row => row.PlayerPK)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
     }
 
     private static void ConfigureUser(ModelBuilder builder)
