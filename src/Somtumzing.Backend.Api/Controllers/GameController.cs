@@ -25,6 +25,195 @@ public sealed class GameController(
     private static readonly EventId MissionEvent = new(7001, "MissionCoreEvent");
 
     // ==========================================
+    // GET /api/v1/achievements (ดึงรายการความสำเร็จทั้งหมดของผู้เล่น)
+    // ==========================================
+    [HttpGet("achievements")]
+    [ProducesResponseType(typeof(AchievementsResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<ActionResult<AchievementsResponse>> GetAchievements(CancellationToken cancellationToken)
+    {
+        try
+        {
+            var subject = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
+            if (!Guid.TryParse(subject, out var playerPk)) return UnauthorizedProblem();
+
+            var user = await database.Users.AsNoTracking().SingleOrDefaultAsync(u => u.Id == playerPk, cancellationToken);
+            if (user is null) return UnauthorizedProblem();
+            if (user.IsSuspended) return ForbiddenProblem();
+
+            // ดึง Master Achievements ทั้งหมด
+            var masterAchievements = await database.Set<GameAchievement>()
+                .AsNoTracking()
+                .Where(a => a.Status == "ACTIVE")
+                .ToListAsync(cancellationToken);
+
+            var playerAchievements = await database.Set<PlayerGameAchievement>()
+                .AsNoTracking()
+                .Where(pa => pa.PlayerPK == playerPk)
+                .ToListAsync(cancellationToken);
+
+            var items = masterAchievements.Select(master =>
+            {
+                var playerAch = playerAchievements.FirstOrDefault(pa => pa.AchievementKey == master.AchievementKey);
+                int progress = playerAch?.Progress ?? 0;
+                bool isCompleted = progress >= master.TargetValue || (playerAch?.IsCompleted ?? false);
+                bool isClaimed = playerAch?.IsClaimed ?? false;
+
+                return new AchievementItem(
+                    Id: master.AchievementKey,
+                    Title: master.Title,
+                    Description: master.Description ?? string.Empty,
+                    Progress: progress,
+                    Target: master.TargetValue,
+                    RewardCoins: master.RewardCoins,
+                    RewardDiamonds: master.RewardDiamonds,
+                    IsCompleted: isCompleted,
+                    IsClaimed: isClaimed);
+            }).ToList();
+
+            return Ok(new AchievementsResponse(items));
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "An error occurred while fetching achievements.");
+            return StatusCode(StatusCodes.Status500InternalServerError, new ProblemDetails
+            {
+                Type = "https://tools.ietf.org/html/rfc7807",
+                Title = "Backend Error",
+                Status = StatusCodes.Status500InternalServerError,
+                Detail = "An unexpected error occurred while loading achievements."
+            });
+        }
+    }
+
+    // ==========================================
+    // POST /api/v1/achievements/{achievementId}/claim (รับรางวัล Achievement)
+    // ==========================================
+    [HttpPost("achievements/{achievementId}/claim")]
+    [ProducesResponseType(typeof(ClaimAchievementResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<ActionResult<ClaimAchievementResponse>> ClaimAchievementReward(
+        string achievementId,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var subject = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
+            if (!Guid.TryParse(subject, out var playerPk)) return UnauthorizedProblem();
+
+            var user = await database.Users.SingleOrDefaultAsync(u => u.Id == playerPk, cancellationToken);
+            if (user is null) return UnauthorizedProblem();
+            if (user.IsSuspended) return ForbiddenProblem();
+
+            var masterAch = await database.Achievements
+                .SingleOrDefaultAsync(a => a.AchievementKey == achievementId && a.Status == "ACTIVE", cancellationToken);
+
+            if (masterAch is null)
+            {
+                return NotFound(new ProblemDetails
+                {
+                    Type = "https://tools.ietf.org/html/rfc7807",
+                    Title = "Not Found",
+                    Status = StatusCodes.Status404NotFound,
+                    Detail = "Achievement not found."
+                });
+            }
+
+            var playerAch = await database.PlayerAchievements
+                .SingleOrDefaultAsync(pa => pa.PlayerPK == playerPk && pa.AchievementKey == achievementId, cancellationToken);
+
+            int progress = playerAch?.Progress ?? 0;
+            bool isCompleted = progress >= masterAch.TargetValue || (playerAch?.IsCompleted ?? false);
+
+            if (!isCompleted)
+            {
+                return Conflict(new ProblemDetails
+                {
+                    Type = "https://tools.ietf.org/html/rfc7807",
+                    Title = "Conflict",
+                    Status = StatusCodes.Status409Conflict,
+                    Detail = "Achievement is not yet completed."
+                });
+            }
+
+            if (playerAch is not null && playerAch.IsClaimed)
+            {
+                return Conflict(new ProblemDetails
+                {
+                    Type = "https://tools.ietf.org/html/rfc7807",
+                    Title = "Conflict",
+                    Status = StatusCodes.Status409Conflict,
+                    Detail = "Achievement reward has already been claimed."
+                });
+            }
+
+            // ให้รางวัลเหรียญ (และเพชรตาม Master Data)
+            user.Coins += masterAch.RewardCoins;
+
+            if (playerAch is null)
+            {
+                playerAch = new PlayerGameAchievement
+                {
+                    PK = Guid.NewGuid(),
+                    Code = $"PACH_{Guid.NewGuid():N}".Substring(0, 16),
+                    Status = "ACTIVE",
+                    PlayerPK = playerPk,
+                    AchievementKey = achievementId,
+                    Progress = masterAch.TargetValue,
+                    IsCompleted = true,
+                    IsClaimed = true,
+                    CreatedDate = DateTimeOffset.UtcNow,
+                    UpdatedDate = DateTimeOffset.UtcNow
+                };
+                database.PlayerAchievements.Add(playerAch);
+            }
+            else
+            {
+                playerAch.IsClaimed = true;
+                playerAch.UpdatedDate = DateTimeOffset.UtcNow;
+            }
+
+            await database.SaveChangesAsync(cancellationToken);
+
+            logger.LogInformation(GameEvent, "Player {PlayerId} claimed reward for achievement {AchievementId}", playerPk, achievementId);
+
+            var updatedPlayer = new FullPlayerResponse(
+                Id: $"p_{user.Id:N}".Substring(0, 12),
+                Username: user.UserName,
+                DisplayName: user.DisplayName ?? user.UserName ?? "ผู้เล่นใหม่",
+                Coins: user.Coins,
+                Energy: user.Energy,
+                BestScore: user.BestScore,
+                TotalServed: user.TotalServed,
+                Upgrades: new Dictionary<string, int> { { "mortar_golden", 1 } },
+                CreatedAt: user.CreatedAtUtc.ToString("yyyy-MM-ddTHH:mm:ss") + "Z");
+
+            return Ok(new ClaimAchievementResponse(
+                Player: updatedPlayer,
+                RewardCoins: masterAch.RewardCoins,
+                RewardDiamonds: masterAch.RewardDiamonds));
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "An error occurred while claiming achievement reward.");
+            return StatusCode(StatusCodes.Status500InternalServerError, new ProblemDetails
+            {
+                Type = "https://tools.ietf.org/html/rfc7807",
+                Title = "Backend Error",
+                Status = StatusCodes.Status500InternalServerError,
+                Detail = "An unexpected error occurred while claiming achievement reward."
+            });
+        }
+    }
+
+
+    // ==========================================
     // 1. POST /api/v1/runs (Start Run)
     // ==========================================
     [HttpPost("runs")]
@@ -798,4 +987,24 @@ public sealed class GameController(
         string CreatedAt,
         int JoinedDays,
         int RunsPlayed);
+
+    
+    // DTO Records สำหรับ Achievements
+    public sealed record AchievementItem(
+        string Id,
+        string Title,
+        string Description,
+        int Progress,
+        int Target,
+        int RewardCoins,
+        int RewardDiamonds,
+        bool IsCompleted,
+        bool IsClaimed);
+
+    public sealed record AchievementsResponse(List<AchievementItem> Achievements);
+
+    public sealed record ClaimAchievementResponse(
+        FullPlayerResponse Player,
+        int RewardCoins,
+        int RewardDiamonds);
 }

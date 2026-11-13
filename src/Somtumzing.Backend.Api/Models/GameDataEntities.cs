@@ -11,6 +11,41 @@ public interface IGameDataEntity
     string Status { get; set; }
 }
 
+
+// เพิ่ม Model สำหรับ Achievements
+public sealed class GameAchievement : IGameDataEntity
+{
+    public Guid PK { get; set; }
+    public string Code { get; set; } = string.Empty;
+    public DateTimeOffset CreatedDate { get; set; }
+    public Guid? CreatedBy { get; set; }
+    public DateTimeOffset UpdatedDate { get; set; }
+    public Guid? UpdatedBy { get; set; }
+    public string Status { get; set; } = string.Empty;
+    public string AchievementKey { get; set; } = string.Empty;
+    public string Title { get; set; } = string.Empty;
+    public string? Description { get; set; }
+    public int TargetValue { get; set; }
+    public int RewardCoins { get; set; }
+    public int RewardDiamonds { get; set; }
+}
+
+public sealed class PlayerGameAchievement : IGameDataEntity
+{
+    public Guid PK { get; set; }
+    public string Code { get; set; } = string.Empty;
+    public DateTimeOffset CreatedDate { get; set; }
+    public Guid? CreatedBy { get; set; }
+    public DateTimeOffset UpdatedDate { get; set; }
+    public Guid? UpdatedBy { get; set; }
+    public string Status { get; set; } = string.Empty;
+    public Guid PlayerPK { get; set; }
+    public string AchievementKey { get; set; } = string.Empty;
+    public int Progress { get; set; }
+    public bool IsCompleted { get; set; }
+    public bool IsClaimed { get; set; }
+}
+
 // เพิ่ม Model สำหรับระบบ Daily Rewards
 public sealed class PlayerDailyState : IGameDataEntity
 {
@@ -537,3 +572,5 @@ public sealed class MatchSabotageEvent : IGameDataEntity
     public string EffectSnapshot { get; set; } = "{}";
     public DateTimeOffset? ImmunityUntilDate { get; set; }
 }
+
+

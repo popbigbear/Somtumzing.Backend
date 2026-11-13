@@ -46,6 +46,9 @@ public sealed class GameDbContext(DbContextOptions<GameDbContext> options)
     public DbSet<PlayerMission> PlayerMissions => Set<PlayerMission>();
     // เพิ่ม DbSet สำหรับ Daily Rewards
     public DbSet<PlayerDailyState> PlayerDailyStates => Set<PlayerDailyState>();
+    // เพิ่ม DbSet สำหรับ Achievements
+    public DbSet<GameAchievement> Achievements => Set<GameAchievement>();
+    public DbSet<PlayerGameAchievement> PlayerAchievements => Set<PlayerGameAchievement>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -65,7 +68,33 @@ public sealed class GameDbContext(DbContextOptions<GameDbContext> options)
         ConfigurePlayerMission(builder);
         // เรียกใช้งาน Configure สำหรับ Daily Rewards
         ConfigurePlayerDailyState(builder);
+        // เรียกใช้งาน Configure สำหรับ Achievements
+        ConfigureAchievement(builder);
+        ConfigurePlayerAchievement(builder);
 
+    }
+
+    private static void ConfigureAchievement(ModelBuilder builder)
+    {
+        ConfigureRecord<GameAchievement>(builder, "Achievements", "Achievement", "8", "ACTIVE");
+        builder.Entity<GameAchievement>(entity =>
+        {
+            entity.Property(row => row.AchievementKey).HasMaxLength(64).IsRequired();
+            entity.Property(row => row.Title).HasMaxLength(160).IsRequired();
+            entity.HasIndex(row => row.AchievementKey).IsUnique();
+        });
+    }
+
+    private static void ConfigurePlayerAchievement(ModelBuilder builder)
+    {
+        ConfigureRecord<PlayerGameAchievement>(builder, "PlayerAchievements", "PlayerAch", "9", "ACTIVE");
+        builder.Entity<PlayerGameAchievement>(entity =>
+        {
+            entity.Property(row => row.AchievementKey).HasMaxLength(64).IsRequired();
+            entity.HasIndex(row => new { row.PlayerPK, row.AchievementKey }).IsUnique();
+            entity.HasOne<ApplicationUser>().WithMany().HasForeignKey(row => row.PlayerPK)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
     }
 
     
