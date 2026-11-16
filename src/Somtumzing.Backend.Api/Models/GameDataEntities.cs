@@ -11,6 +11,40 @@ public interface IGameDataEntity
     string Status { get; set; }
 }
 
+public sealed class GameEvent : IGameDataEntity
+{
+    public Guid PK { get; set; }
+    public string Code { get; set; } = string.Empty;
+    public DateTimeOffset CreatedDate { get; set; }
+    public Guid? CreatedBy { get; set; }
+    public DateTimeOffset UpdatedDate { get; set; }
+    public Guid? UpdatedBy { get; set; }
+    public string Status { get; set; } = string.Empty;
+    public string EventKey { get; set; } = string.Empty;
+    public string Title { get; set; } = string.Empty;
+    public string? Description { get; set; }
+    public DateTimeOffset StartsAtUtc { get; set; }
+    public DateTimeOffset EndsAtUtc { get; set; }
+    public string RewardConfig { get; set; } = "{}";
+}
+
+public sealed class PlayerGameEvent : IGameDataEntity
+{
+    public Guid PK { get; set; }
+    public string Code { get; set; } = string.Empty;
+    public DateTimeOffset CreatedDate { get; set; }
+    public Guid? CreatedBy { get; set; }
+    public DateTimeOffset UpdatedDate { get; set; }
+    public Guid? UpdatedBy { get; set; }
+    public string Status { get; set; } = string.Empty;
+    public Guid PlayerPK { get; set; }
+    public string EventKey { get; set; } = string.Empty;
+    public int Progress { get; set; }
+    public int TargetValue { get; set; }
+    public bool IsCompleted { get; set; }
+    public bool IsClaimed { get; set; }
+}
+
 
 // เพิ่ม Model สำหรับ Achievements
 public sealed class GameAchievement : IGameDataEntity
@@ -28,6 +62,23 @@ public sealed class GameAchievement : IGameDataEntity
     public int TargetValue { get; set; }
     public int RewardCoins { get; set; }
     public int RewardDiamonds { get; set; }
+}
+
+public sealed class PlayerCosmetic : IGameDataEntity
+{   public Guid PK { get; set; }
+    public string Code { get; set; } = string.Empty;
+    public DateTimeOffset CreatedDate { get; set; }
+    public Guid? CreatedBy { get; set; }
+    public DateTimeOffset UpdatedDate { get; set; }
+    public Guid? UpdatedBy { get; set; }
+    public string Status { get; set; } = string.Empty;
+    public Guid PlayerPK { get; set; }
+    public string CosmeticKey { get; set; } = string.Empty;
+    public string DisplayName { get; set; } = string.Empty;
+    public bool Unlocked { get; set; }
+    
+    // เพิ่ม Property นี้เพื่อให้คอมไพเลอร์รู้จักใน DbContext และ Controller
+    public bool IsEquipped { get; set; }
 }
 
 public sealed class PlayerGameAchievement : IGameDataEntity

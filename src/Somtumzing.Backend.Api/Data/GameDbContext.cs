@@ -41,6 +41,8 @@ public sealed class GameDbContext(DbContextOptions<GameDbContext> options)
     public DbSet<PlayerIngredient> PlayerIngredients => Set<PlayerIngredient>();
     public DbSet<PlayerCosmetic> PlayerCosmetics => Set<PlayerCosmetic>();
 
+    public DbSet<GameEvent> GameEvents => Set<GameEvent>();
+    public DbSet<PlayerGameEvent> PlayerGameEvents => Set<PlayerGameEvent>();
     
     public DbSet<Mission> Missions => Set<Mission>();
     public DbSet<PlayerMission> PlayerMissions => Set<PlayerMission>();
@@ -72,6 +74,49 @@ public sealed class GameDbContext(DbContextOptions<GameDbContext> options)
         ConfigureAchievement(builder);
         ConfigurePlayerAchievement(builder);
 
+        ConfigurePlayerCosmetic(builder);
+
+        ConfigureGameEvent(builder);
+        ConfigurePlayerGameEvent(builder);
+
+    }
+
+    private static void ConfigureGameEvent(ModelBuilder builder)
+    {
+        ConfigureRecord<GameEvent>(builder, "GameEvents", "Event", "E", "ACTIVE");
+        builder.Entity<GameEvent>(entity =>
+        {
+            entity.Property(row => row.EventKey).HasMaxLength(64).IsRequired();
+            entity.Property(row => row.Title).HasMaxLength(160).IsRequired();
+            entity.Property(row => row.RewardConfig).HasColumnType("jsonb").IsRequired();
+            entity.HasIndex(row => row.EventKey).IsUnique();
+        });
+    }
+
+    private static void ConfigurePlayerGameEvent(ModelBuilder builder)
+    {
+        ConfigureRecord<PlayerGameEvent>(builder, "PlayerGameEvents", "PlayerEvent", "PE", "ACTIVE");
+        builder.Entity<PlayerGameEvent>(entity =>
+        {
+            entity.Property(row => row.EventKey).HasMaxLength(64).IsRequired();
+            entity.HasIndex(row => new { row.PlayerPK, row.EventKey }).IsUnique();
+            entity.HasOne<ApplicationUser>().WithMany().HasForeignKey(row => row.PlayerPK)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+    }
+
+     private static void ConfigurePlayerCosmetic(ModelBuilder builder)
+    {
+        ConfigureRecord<PlayerCosmetic>(builder, "PlayerCosmetics", "PlayerCosmetic", "5", "ACTIVE");
+        builder.Entity<PlayerCosmetic>(entity =>
+        {
+            entity.Property(row => row.CosmeticKey).HasMaxLength(64).IsRequired();
+            entity.Property(row => row.DisplayName).HasMaxLength(160).IsRequired();
+            entity.Property(row => row.IsEquipped).HasDefaultValue(false);
+            entity.HasIndex(row => new { row.PlayerPK, row.CosmeticKey }).IsUnique();
+            entity.HasOne<ApplicationUser>().WithMany().HasForeignKey(row => row.PlayerPK)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
     }
 
     private static void ConfigureAchievement(ModelBuilder builder)

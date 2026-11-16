@@ -24,6 +24,258 @@ public sealed class GameController(
     // เพิ่ม EventId สำหรับ Mission ตามมาตรฐาน Logging
     private static readonly EventId MissionEvent = new(7001, "MissionCoreEvent");
 
+    // ==========================================
+    // GET /api/v1/collection (ดึงของสะสม สถานะ และชิ้นที่สวมใส่อยู่)
+    // ==========================================
+    [HttpGet("collection")]
+    [ProducesResponseType(typeof(CollectionResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<ActionResult<CollectionResponse>> GetCollection(CancellationToken cancellationToken)
+    {
+        try
+        {
+            var userId = GetCurrentUserId();
+            if (userId == null) return UnauthorizedProblem();
+
+            var user = await database.Users.AsNoTracking().SingleOrDefaultAsync(u => u.Id == userId.Value, cancellationToken);
+            if (user is null) return UnauthorizedProblem();
+            if (user.IsSuspended) return ForbiddenProblem();
+
+            var cosmetics = await database.PlayerCosmetics
+                .AsNoTracking()
+                .Where(c => c.PlayerPK == userId.Value)
+                .ToListAsync(cancellationToken);
+
+            var items = cosmetics.Select(c => new CollectionItem(
+                Id: c.CosmeticKey,
+                Name: c.DisplayName,
+                Unlocked: c.Unlocked,
+                IsEquipped: c.IsEquipped
+            )).ToList();
+
+            return Ok(new CollectionResponse(items));
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "An error occurred while fetching player collection.");
+            return StatusCode(StatusCodes.Status500InternalServerError, new ProblemDetails
+            {
+                Type = "https://tools.ietf.org/html/rfc7807",
+                Title = "Backend Error",
+                Status = StatusCodes.Status500InternalServerError,
+                Detail = "An unexpected error occurred while loading collection."
+            });
+        }
+    }
+
+     // ==========================================
+    // GET /api/v1/events (รายการอีเวนต์ที่กำลังเปิดและเวลาสิ้นสุด)
+    // ==========================================
+    [HttpGet("events")]
+    [ProducesResponseType(typeof(EventsResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<ActionResult<EventsResponse>> GetEvents(CancellationToken cancellationToken)
+    {
+        try
+        {
+            var userId = GetCurrentUserId();
+            if (userId == null) return UnauthorizedProblem();
+
+            var user = await database.Users.AsNoTracking().SingleOrDefaultAsync(u => u.Id == userId.Value, cancellationToken);
+            if (user is null) return UnauthorizedProblem();
+            if (user.IsSuspended) return ForbiddenProblem();
+
+            var now = DateTimeOffset.UtcNow;
+
+            // ดึงอีเวนต์ที่ Active และอยู่ในช่วงเวลาปัจจุบัน
+            var activeEvents = await database.GameEvents
+                .AsNoTracking()
+                .Where(e => e.Status == "ACTIVE" && e.StartsAtUtc <= now && e.EndsAtUtc >= now)
+                .ToListAsync(cancellationToken);
+
+            var items = activeEvents.Select(e => new EventItem(
+                Id: e.EventKey,
+                Title: e.Title,
+                Description: e.Description ?? string.Empty,
+                StartsAt: e.StartsAtUtc.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"),
+                EndsAt: e.EndsAtUtc.ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
+            )).ToList();
+
+            return Ok(new EventsResponse(items));
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "An error occurred while fetching active events.");
+            return StatusCode(StatusCodes.Status500InternalServerError, new ProblemDetails
+            {
+                Type = "https://tools.ietf.org/html/rfc7807",
+                Title = "Backend Error",
+                Status = StatusCodes.Status500InternalServerError,
+                Detail = "An unexpected error occurred while loading events."
+            });
+        }
+    }
+
+    // ==========================================
+    // GET /api/v1/events/{eventId} (รายละเอียด, progress และ reward)
+    // ==========================================
+    [HttpGet("events/{eventId}")]
+    [ProducesResponseType(typeof(EventDetailResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<ActionResult<EventDetailResponse>> GetEventDetail(
+        string eventId,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var userId = GetCurrentUserId();
+            if (userId == null) return UnauthorizedProblem();
+
+            var user = await database.Users.AsNoTracking().SingleOrDefaultAsync(u => u.Id == userId.Value, cancellationToken);
+            if (user is null) return UnauthorizedProblem();
+            if (user.IsSuspended) return ForbiddenProblem();
+
+            Guid playerPk = userId.Value;
+
+            var gameEvent = await database.GameEvents
+                .AsNoTracking()
+                .SingleOrDefaultAsync(e => e.EventKey == eventId && e.Status == "ACTIVE", cancellationToken);
+
+            if (gameEvent is null)
+            {
+                return NotFound(new ProblemDetails
+                {
+                    Type = "https://tools.ietf.org/html/rfc7807",
+                    Title = "Not Found",
+                    Status = StatusCodes.Status404NotFound,
+                    Detail = "Event not found or expired."
+                });
+            }
+
+            var playerEvent = await database.PlayerGameEvents
+                .AsNoTracking()
+                .SingleOrDefaultAsync(pe => pe.PlayerPK == playerPk && pe.EventKey == eventId, cancellationToken);
+
+            int progress = playerEvent?.Progress ?? 0;
+            int target = playerEvent?.TargetValue ?? 100;
+            bool isCompleted = progress >= target || (playerEvent?.IsCompleted ?? false);
+            bool isClaimed = playerEvent?.IsClaimed ?? false;
+
+            return Ok(new EventDetailResponse(
+                Id: gameEvent.EventKey,
+                Title: gameEvent.Title,
+                Description: gameEvent.Description ?? string.Empty,
+                StartsAt: gameEvent.StartsAtUtc.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"),
+                EndsAt: gameEvent.EndsAtUtc.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"),
+                Progress: progress,
+                Target: target,
+                IsCompleted: isCompleted,
+                IsClaimed: isClaimed,
+                RewardConfig: gameEvent.RewardConfig
+            ));
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "An error occurred while fetching event detail for {EventId}.", eventId);
+            return StatusCode(StatusCodes.Status500InternalServerError, new ProblemDetails
+            {
+                Type = "https://tools.ietf.org/html/rfc7807",
+                Title = "Backend Error",
+                Status = StatusCodes.Status500InternalServerError,
+                Detail = "An unexpected error occurred while loading event detail."
+            });
+        }
+    }
+
+    // ==========================================
+    // POST /api/v1/collection/{itemId}/equip (เลือกใช้อุปกรณ์/ของตกแต่ง)
+    // ==========================================
+    [HttpPost("collection/{itemId}/equip")]
+    [ProducesResponseType(typeof(EquipCollectionResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<ActionResult<EquipCollectionResponse>> EquipCollectionItem(
+        string itemId,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var userId = GetCurrentUserId();
+            if (userId == null) return UnauthorizedProblem();
+
+            var user = await database.Users.SingleOrDefaultAsync(u => u.Id == userId.Value, cancellationToken);
+            if (user is null) return UnauthorizedProblem();
+            if (user.IsSuspended) return ForbiddenProblem();
+
+            // ค้นหาของสะสมที่ผู้เล่นต้องการสวมใส่
+            var targetItem = await database.PlayerCosmetics
+                .SingleOrDefaultAsync(c => c.PlayerPK == userId.Value && c.CosmeticKey == itemId, cancellationToken);
+
+            if (targetItem is null)
+            {
+                return NotFound(new ProblemDetails
+                {
+                    Type = "https://tools.ietf.org/html/rfc7807",
+                    Title = "Not Found",
+                    Status = StatusCodes.Status404NotFound,
+                    Detail = "Collection item not found."
+                });
+            }
+
+            if (!targetItem.Unlocked)
+            {
+                return Conflict(new ProblemDetails
+                {
+                    Type = "https://tools.ietf.org/html/rfc7807",
+                    Title = "Conflict",
+                    Status = StatusCodes.Status409Conflict,
+                    Detail = "Collection item is not unlocked yet."
+                });
+            }
+
+            // ยกเลิกการสวมใส่ชิ้นอื่นในประเภทเดียวกัน (หรือสลับสถานะ) แล้วสวมใส่ชิ้นใหม่
+            var playerCosmetics = await database.PlayerCosmetics
+                .Where(c => c.PlayerPK == userId.Value)
+                .ToListAsync(cancellationToken);
+
+            foreach (var cosmetic in playerCosmetics)
+            {
+                cosmetic.IsEquipped = (cosmetic.CosmeticKey == itemId);
+                cosmetic.UpdatedDate = DateTimeOffset.UtcNow;
+            }
+
+            await database.SaveChangesAsync(cancellationToken);
+
+            logger.LogInformation(GameEvent, "Player {PlayerId} equipped collection item {ItemId}", userId.Value, itemId);
+
+            return Ok(new EquipCollectionResponse(
+                ItemId: itemId,
+                IsEquipped: true,
+                Message: "Item equipped successfully."));
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "An error occurred while equipping collection item.");
+            return StatusCode(StatusCodes.Status500InternalServerError, new ProblemDetails
+            {
+                Type = "https://tools.ietf.org/html/rfc7807",
+                Title = "Backend Error",
+                Status = StatusCodes.Status500InternalServerError,
+                Detail = "An unexpected error occurred while equipping item."
+            });
+        }
+    }
+
    // ==========================================
     // GET /api/v1/wallet (ยอดเงินและยอดคงเหลือ)
     // ==========================================
@@ -1094,6 +1346,12 @@ public sealed class GameController(
         string Name,
         bool Unlocked);
 
+     // DTO Records สำหรับ Collection
+    public sealed record CollectionItem(string Id, string Name, bool Unlocked, bool IsEquipped);
+    public sealed record CollectionResponse(List<CollectionItem> Items);
+    public sealed record EquipCollectionResponse(string ItemId, bool IsEquipped, string Message);
+
+
     // DTO Records สำหรับ Wallet & Transactions
     public sealed record WalletResponse(string CurrencyCode, decimal Balance, decimal AvailableBalance);
     public sealed record WalletTransactionItem(Guid Id, string TransactionType, decimal Amount, decimal BalanceAfter, string Description, string CreatedAt);
@@ -1148,4 +1406,18 @@ public sealed class GameController(
         FullPlayerResponse Player,
         int RewardCoins,
         int RewardDiamonds);
+
+    public sealed record EventItem(string Id, string Title, string Description, string StartsAt, string EndsAt);
+    public sealed record EventsResponse(List<EventItem> Events);
+    public sealed record EventDetailResponse(
+        string Id,
+        string Title,
+        string Description,
+        string StartsAt,
+        string EndsAt,
+        int Progress,
+        int Target,
+        bool IsCompleted,
+        bool IsClaimed,
+        string RewardConfig);
 }
