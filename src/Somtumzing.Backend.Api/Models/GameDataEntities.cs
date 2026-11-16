@@ -11,6 +11,21 @@ public interface IGameDataEntity
     string Status { get; set; }
 }
 
+public sealed class EventLeaderboard : IGameDataEntity
+{
+    public Guid PK { get; set; }
+    public string Code { get; set; } = string.Empty;
+    public DateTimeOffset CreatedDate { get; set; }
+    public Guid? CreatedBy { get; set; }
+    public DateTimeOffset UpdatedDate { get; set; }
+    public Guid? UpdatedBy { get; set; }
+    public string Status { get; set; } = string.Empty;
+    public string EventKey { get; set; } = string.Empty;
+    public Guid PlayerPK { get; set; }
+    public string DisplayName { get; set; } = string.Empty;
+    public int Score { get; set; }
+}
+
 public sealed class GameEvent : IGameDataEntity
 {
     public Guid PK { get; set; }

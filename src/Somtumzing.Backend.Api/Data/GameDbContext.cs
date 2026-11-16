@@ -52,6 +52,9 @@ public sealed class GameDbContext(DbContextOptions<GameDbContext> options)
     public DbSet<GameAchievement> Achievements => Set<GameAchievement>();
     public DbSet<PlayerGameAchievement> PlayerAchievements => Set<PlayerGameAchievement>();
 
+    public DbSet<EventLeaderboard> EventLeaderboards => Set<EventLeaderboard>();
+
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -78,7 +81,21 @@ public sealed class GameDbContext(DbContextOptions<GameDbContext> options)
 
         ConfigureGameEvent(builder);
         ConfigurePlayerGameEvent(builder);
+        ConfigureEventLeaderboard(builder);
 
+    }
+
+    private static void ConfigureEventLeaderboard(ModelBuilder builder)
+    {
+        ConfigureRecord<EventLeaderboard>(builder, "EventLeaderboards", "EventRank", "ER", "ACTIVE");
+        builder.Entity<EventLeaderboard>(entity =>
+        {
+            entity.Property(row => row.EventKey).HasMaxLength(64).IsRequired();
+            entity.Property(row => row.DisplayName).HasMaxLength(160).IsRequired();
+            entity.HasIndex(row => new { row.EventKey, row.PlayerPK }).IsUnique();
+            entity.HasOne<ApplicationUser>().WithMany().HasForeignKey(row => row.PlayerPK)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
     }
 
     private static void ConfigureGameEvent(ModelBuilder builder)
