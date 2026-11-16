@@ -24,6 +24,142 @@ public sealed class GameController(
     // เพิ่ม EventId สำหรับ Mission ตามมาตรฐาน Logging
     private static readonly EventId MissionEvent = new(7001, "MissionCoreEvent");
 
+   // ==========================================
+    // GET /api/v1/wallet (ยอดเงินและยอดคงเหลือ)
+    // ==========================================
+    [HttpGet("wallet")]
+    [ProducesResponseType(typeof(WalletResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<ActionResult<WalletResponse>> GetWallet(CancellationToken cancellationToken)
+    {
+        try
+        {
+            var userId = GetCurrentUserId();
+            if (userId == null) return UnauthorizedProblem();
+
+            var user = await database.Users.AsNoTracking().SingleOrDefaultAsync(u => u.Id == userId.Value, cancellationToken);
+            if (user is null) return UnauthorizedProblem();
+            if (user.IsSuspended) return ForbiddenProblem();
+
+            var wallet = await database.Wallets
+                .AsNoTracking()
+                .SingleOrDefaultAsync(w => w.UserPK == userId.Value && w.CurrencyCode == "COINS", cancellationToken);
+
+            if (wallet is null)
+            {
+                wallet = new Wallet
+                {
+                    PK = Guid.NewGuid(),
+                    Code = $"WAL_{Guid.NewGuid():N}".Substring(0, 16),
+                    Status = "ACTIVE",
+                    UserPK = userId.Value,
+                    CurrencyCode = "COINS",
+                    Balance = user.Coins
+                };
+                database.Wallets.Add(wallet);
+                await database.SaveChangesAsync(cancellationToken);
+            }
+
+            return Ok(new WalletResponse(
+                CurrencyCode: wallet.CurrencyCode,
+                Balance: wallet.Balance,
+                AvailableBalance: wallet.Balance));
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "An error occurred while fetching wallet.");
+            return StatusCode(StatusCodes.Status500InternalServerError, new ProblemDetails
+            {
+                Type = "https://tools.ietf.org/html/rfc7807",
+                Title = "Backend Error",
+                Status = StatusCodes.Status500InternalServerError,
+                Detail = "An unexpected error occurred while loading wallet."
+            });
+        }
+    }
+
+    // ==========================================
+    // GET /api/v1/wallet/transactions (ประวัติธุรกรรมพร้อม Cursor Pagination)
+    // ==========================================
+    [HttpGet("wallet/transactions")]
+    [ProducesResponseType(typeof(WalletTransactionsResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<ActionResult<WalletTransactionsResponse>> GetWalletTransactions(
+        [FromQuery] int limit = 20,
+        [FromQuery] string? cursor = null,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var userId = GetCurrentUserId();
+            if (userId == null) return UnauthorizedProblem();
+
+            var user = await database.Users.AsNoTracking().SingleOrDefaultAsync(u => u.Id == userId.Value, cancellationToken);
+            if (user is null) return UnauthorizedProblem();
+            if (user.IsSuspended) return ForbiddenProblem();
+
+            var wallet = await database.Wallets
+                .AsNoTracking()
+                .SingleOrDefaultAsync(w => w.UserPK == userId.Value && w.CurrencyCode == "COINS", cancellationToken);
+
+            if (wallet is null)
+            {
+                return Ok(new WalletTransactionsResponse(new List<WalletTransactionItem>(), null));
+            }
+
+            int queryLimit = Math.Clamp(limit, 1, 100);
+            var query = database.WalletTransactions
+                .AsNoTracking()
+                .Where(t => t.WalletPK == wallet.PK);
+
+            if (!string.IsNullOrEmpty(cursor) && DateTimeOffset.TryParse(cursor, out var cursorDate))
+            {
+                query = query.Where(t => t.CreatedDate < cursorDate);
+            }
+
+            var transactions = await query
+                .OrderByDescending(t => t.CreatedDate)
+                .Take(queryLimit + 1)
+                .ToListAsync(cancellationToken);
+
+            bool hasMore = transactions.Count > queryLimit;
+            if (hasMore)
+            {
+                transactions.RemoveAt(transactions.Count - 1);
+            }
+
+            var items = transactions.Select(t => new WalletTransactionItem(
+                Id: t.PK,
+                TransactionType: t.TransactionType,
+                Amount: t.Amount,
+                BalanceAfter: t.BalanceAfter,
+                Description: t.Description ?? string.Empty,
+                CreatedAt: t.CreatedDate.ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
+            )).ToList();
+
+            string? nextCursor = hasMore && transactions.Count > 0 
+                ? transactions[^1].CreatedDate.ToString("O") 
+                : null;
+
+            return Ok(new WalletTransactionsResponse(items, nextCursor));
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "An error occurred while fetching wallet transactions.");
+            return StatusCode(StatusCodes.Status500InternalServerError, new ProblemDetails
+            {
+                Type = "https://tools.ietf.org/html/rfc7807",
+                Title = "Backend Error",
+                Status = StatusCodes.Status500InternalServerError,
+                Detail = "An unexpected error occurred while loading transactions."
+            });
+        }
+    }
+
     // ==========================================
     // GET /api/v1/achievements (ดึงรายการความสำเร็จทั้งหมดของผู้เล่น)
     // ==========================================
@@ -957,6 +1093,11 @@ public sealed class GameController(
         string Id,
         string Name,
         bool Unlocked);
+
+    // DTO Records สำหรับ Wallet & Transactions
+    public sealed record WalletResponse(string CurrencyCode, decimal Balance, decimal AvailableBalance);
+    public sealed record WalletTransactionItem(Guid Id, string TransactionType, decimal Amount, decimal BalanceAfter, string Description, string CreatedAt);
+    public sealed record WalletTransactionsResponse(List<WalletTransactionItem> Transactions, string? NextCursor);
 
     // Records สำหรับ Request/Response
     public sealed record RunResponse(string RunId, string Status, string StartedAt);
