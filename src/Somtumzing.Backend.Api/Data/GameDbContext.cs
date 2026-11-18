@@ -83,6 +83,11 @@ public sealed class GameDbContext(DbContextOptions<GameDbContext> options)
         ConfigurePlayerGameEvent(builder);
         ConfigureEventLeaderboard(builder);
 
+        builder.Entity<PlayerUpgrade>()
+        .HasOne(pu => pu.Upgrade)
+        .WithMany() // หรือ .WithMany(u => u.PlayerUpgrades) ขึ้นอยู่กับว่าฝั่ง Upgrade มี Collection หรือไม่
+        .HasForeignKey(pu => pu.UpgradePK); // กำหนดเจาะจงที่ฟิลด์ UpgradePK
+
     }
 
     private static void ConfigureEventLeaderboard(ModelBuilder builder)
@@ -490,8 +495,8 @@ public sealed class GameDbContext(DbContextOptions<GameDbContext> options)
         ConfigureRecord<PlayerUpgrade>(builder, "PlayerUpgrades", "PlayerUpgrade", "P", "ACTIVE", "INACTIVE");
         builder.Entity<PlayerUpgrade>(entity =>
         {
-            entity.Property(row => row.PlayerPK).HasColumnName("PlayerPK");
-            entity.Property(row => row.UpgradePK).HasColumnName("UpgradePK");
+            //entity.Property(row => row.PlayerPK).HasColumnName("PlayerPK");
+            //entity.Property(row => row.UpgradePK).HasColumnName("UpgradePK");
 
             entity.HasIndex(row => new { row.PlayerPK, row.UpgradePK }).IsUnique();
             entity.HasOne<ApplicationUser>().WithMany().HasForeignKey(row => row.PlayerPK)

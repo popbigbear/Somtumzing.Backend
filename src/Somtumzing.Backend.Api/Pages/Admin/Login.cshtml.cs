@@ -36,11 +36,31 @@ public sealed class LoginModel(
             return Page();
         }
 
+        // ค้นหา User จาก Email หรือ Username เพื่อให้รองรับทั้งสองแบบ
+        var administrator = await userManager.FindByEmailAsync(Input.Email) 
+                            ?? await userManager.FindByNameAsync(Input.Email);
+
+        if (administrator is null)
+        {
+            ModelState.AddModelError(string.Empty, "Unable to sign in with those credentials.");
+            return Page();
+        }
+
+        // ตรวจสอบว่าเป็น Admin จริงหรือไม่ (ตาม Policy BackOffice)
+        var isAdmin = await userManager.IsInRoleAsync(administrator, "Admin");
+        if (!isAdmin)
+        {
+            ModelState.AddModelError(string.Empty, "Access denied. Administrator role required.");
+            return Page();
+        }
+
+        // ใช้ UserName ในการ Sign-In ผ่าน SignInManager แทน Email เพื่อความแม่นยำของ Identity
         var result = await signInManager.PasswordSignInAsync(
-            Input.Email,
+            administrator.UserName ?? Input.Email,
             Input.Password,
             Input.RememberMe,
             lockoutOnFailure: true);
+
         if (!result.Succeeded)
         {
             await auditLogWriter.WriteAsync(
@@ -50,19 +70,15 @@ public sealed class LoginModel(
                 cancellationToken,
                 actorUsername: Input.Email,
                 targetType: "BackOffice");
+            
             logger.LogWarning(
                 AdminLoginFailedEvent,
                 "Back-office sign-in failed. {EventType} {Outcome}",
                 "AdminLogin",
                 result.IsLockedOut ? "LockedOut" : "InvalidCredentials");
+            
             ModelState.AddModelError(string.Empty, "Unable to sign in with those credentials.");
             return Page();
-        }
-
-        var administrator = await userManager.FindByEmailAsync(Input.Email);
-        if (administrator is null)
-        {
-            throw new InvalidOperationException("Signed-in back-office user could not be resolved.");
         }
 
         logger.LogInformation(
@@ -71,6 +87,7 @@ public sealed class LoginModel(
             "AdminLogin",
             administrator.Id,
             "Succeeded");
+            
         await auditLogWriter.WriteAsync(
             "AdminLogin",
             "Information",

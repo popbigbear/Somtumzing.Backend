@@ -215,18 +215,55 @@ app.MapRazorPages();
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
+    var logger = services.GetRequiredService<ILogger<Program>>();
+
+    // 1. จัดการ User ก่อน Migrate เพื่อไม่ให้โดนดัก
+    try
+    {
+        logger.LogInformation("Start checking admin user...");
+        var userManager = services.GetRequiredService<UserManager<ApplicationUser>>();
+        var adminUser = await userManager.FindByEmailAsync("admin@somtumzing.local")
+                     ?? await userManager.FindByNameAsync("admin");
+
+        if (adminUser != null)
+        {
+            logger.LogInformation("Found admin user: {Email}", adminUser.Email);
+
+            // ปลดล็อคและล้างรหัสเดิมที่พัง
+            adminUser.LockoutEnd = null;
+            adminUser.AccessFailedCount = 0;
+            await userManager.RemovePasswordAsync(adminUser);
+
+            // ใส่รหัสใหม่
+            var result = await userManager.AddPasswordAsync(adminUser, "Admin@12345678");
+            if (result.Succeeded)
+            {
+                logger.LogInformation(">>> Admin password successfully reset to: Admin@12345678 <<<");
+            }
+            else
+            {
+                logger.LogError("Failed to reset password: {Errors}", string.Join(", ", result.Errors.Select(e => e.Description)));
+            }
+        }
+        else
+        {
+            logger.LogWarning("Admin user not found in database.");
+        }
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Error while resetting admin password.");
+    }
+
+    // 2. ค่อยรัน Database Migration
     try
     {
         var context = services.GetRequiredService<GameDbContext>();
-        // ทำการ Migrate ฐานข้อมูลอัตโนมัติ
         await context.Database.MigrateAsync();
-        
-        // หรือถ้ามี Initializer ที่คุณใช้อยู่แล้ว
         await DatabaseInitializer.InitializeAsync(services, app.Configuration);
     }
     catch (Exception ex)
     {
-        var logger = services.GetRequiredService<ILogger<Program>>();
         logger.LogError(ex, "An error occurred while migrating the database.");
     }
 }
