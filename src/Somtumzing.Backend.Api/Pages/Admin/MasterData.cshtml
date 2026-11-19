@@ -1,0 +1,289 @@
+@page
+@model MasterDataModel
+@{
+    ViewData["Title"] = "บริหารจัดการข้อมูลเกม - ส้มตำซิ่ง";
+    Layout = "_Layout"; // อ้างอิงเลย์เอาต์หลังบ้านแอดมินของคุณ
+}
+
+<div class="container mx-auto px-4 py-6" id="masterDataApp">
+    <!-- แผงหัวกระดาษการ์ตูนแบบส้มตำซิ่ง -->
+    <div class="bg-amber-100 border-4 border-amber-900 rounded-3xl p-6 shadow-xl mb-8 flex flex-col md:flex-row justify-between items-center">
+        <div>
+            <h1 class="text-3xl font-extrabold text-amber-900 flex items-center gap-2">
+                🌶️ แผงจัดการข้อมูลเกม (Master Data)
+            </h1>
+            <p class="text-amber-800 font-semibold mt-1">บริหารด่านเกม, รางวัล, กิจกรรมปั่นป่วน และความสำเร็จหลังบ้าน</p>
+        </div>
+        
+        <div class="mt-4 md:mt-0 flex gap-4 w-full md:w-auto">
+            <select id="entitySelector" onchange="onEntityChange()" class="border-4 border-amber-900 bg-white text-amber-900 font-bold rounded-2xl px-4 py-3 focus:outline-none flex-grow">
+                <option value="">-- เลือกประเภทข้อมูลที่ต้องการจัดการ --</option>
+            </select>
+            
+            <button onclick="openModal()" id="btnNew" class="hidden bg-emerald-500 hover:bg-emerald-600 text-white font-extrabold px-6 py-3 rounded-2xl border-4 border-amber-900 shadow-md transform active:scale-95 transition flex-shrink-0">
+                ➕ เพิ่มข้อมูลใหม่
+            </button>
+        </div>
+    </div>
+
+    <!-- โซนแสดงข้อมูลตารางแบบไดนามิก -->
+    <div class="bg-white border-4 border-amber-900 rounded-3xl p-6 shadow-xl hidden" id="tableContainer">
+        <div class="overflow-x-auto rounded-2xl border-2 border-amber-200">
+            <table class="w-full text-left border-collapse" id="dynamicTable">
+                <thead>
+                    <tr class="bg-amber-500 text-amber-95 text-lg font-bold border-b-4 border-amber-900" id="tableHeader">
+                        <!-- หัวข้อคอลัมน์จะถูกวาดจาก JS -->
+                    </tr>
+                </thead>
+                <tbody id="tableBody" class="text-amber-900 font-medium divide-y divide-amber-100">
+                    <!-- ข้อมูลจะถูกวาดจาก JS -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- หน้าต่างป๊อปอัปกรอก/แก้ไขข้อมูล (Modal Form) -->
+    <div id="formModal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center p-4 z-50">
+        <div class="bg-amber-50 border-8 border-amber-900 rounded-3xl w-full max-w-2xl shadow-2xl max-h-[90vh] flex flex-col">
+            <!-- Modal Header -->
+            <div class="bg-amber-100 p-4 border-b-4 border-amber-900 flex justify-between items-center rounded-t-xl">
+                <h3 class="text-2xl font-black text-amber-900" id="modalTitle">ฟอร์มแก้ไขข้อมูล</h3>
+                <button onclick="closeModal()" class="text-amber-900 font-black text-3xl hover:text-red-600">×</button>
+            </div>
+            
+            <!-- Modal Body Form -->
+            <div class="p-6 overflow-y-auto flex-grow" id="formFields">
+                <!-- กล่องกรอกข้อมูลประเภทต่างๆ จะวาดผ่าน JS อัตโนมัติ -->
+            </div>
+            
+            <!-- Modal Footer Buttons -->
+            <div class="bg-amber-100 p-4 border-t-4 border-amber-900 flex justify-end gap-4 rounded-b-xl">
+                <button onclick="closeModal()" class="bg-gray-400 hover:bg-gray-500 text-white font-extrabold px-6 py-2.5 rounded-xl border-4 border-amber-900">ยกเลิก</button>
+                <button onclick="saveData()" class="bg-emerald-500 hover:bg-emerald-600 text-white font-extrabold px-6 py-2.5 rounded-xl border-4 border-amber-900 shadow-md">💾 บันทึกข้อมูล</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let currentSchema = [];
+    let currentData = [];
+    let selectedEntity = "";
+
+    // รันเมื่อหน้าเพจโหลดสำเร็จ
+    document.addEventListener("DOMContentLoaded", async () => {
+        const res = await fetch("/api/MasterData/types");
+        const types = await res.json();
+        const selector = document.getElementById("entitySelector");
+        types.forEach(t => {
+            const opt = document.createElement("option");
+            opt.value = t.name;
+            opt.textContent = `📋 จัดการ: ${t.name}`;
+            selector.appendChild(opt);
+        });
+    });
+
+    // เมื่อแอดมินเปลี่ยนสลับตารางข้อมูล
+    async function onEntityChange() {
+        selectedEntity = document.getElementById("entitySelector").value;
+        const btnNew = document.getElementById("btnNew");
+        const tableContainer = document.getElementById("tableContainer");
+        
+        if (!selectedEntity) {
+            btnNew.classList.add("hidden");
+            tableContainer.classList.add("hidden");
+            return;
+        }
+
+        btnNew.classList.remove("hidden");
+        tableContainer.classList.remove("hidden");
+
+        // โหลด Schema และ Data พร้อมกัน
+        const [schemaRes, dataRes] = await Promise.all([
+            fetch(`/api/MasterData/schema/${selectedEntity}`),
+            fetch(`/api/MasterData/data/${selectedEntity}`)
+        ]);
+
+        currentSchema = await schemaRes.json();
+        currentData = await dataRes.json();
+
+        renderTable();
+    }
+
+    // วาดตารางข้อมูลแบบไดนามิกตามโครงสร้าง Schema
+    function renderTable() {
+        const header = document.getElementById("tableHeader");
+        const body = document.getElementById("tableBody");
+        header.innerHTML = "";
+        body.innerHTML = "";
+
+        // เลือกเฉพาะคอลัมน์สำคัญมาโชว์ในตารางเพื่อไม่ให้แถวยาวเกินไป
+        const visibleFields = currentSchema.filter(s => !s.isSystemField);
+
+        // วาดหัวข้อตาราง (Header)
+        visibleFields.forEach(f => {
+            const th = document.createElement("th");
+            th.className = "px-4 py-3";
+            th.textContent = f.name;
+            header.appendChild(th);
+        });
+        
+        // เพิ่มคอลัมน์ตัวเลือกจัดการ
+        const thActions = document.createElement("th");
+        thActions.className = "px-4 py-3 text-center w-36";
+        thActions.textContent = "จัดการ";
+        header.appendChild(thActions);
+
+        // วาดเนื้อหาข้อมูล (Body)
+        if (currentData.length === 0) {
+            body.innerHTML = `<tr><td colspan="${visibleFields.length + 1}" class="text-center py-8 text-amber-500 font-bold">ไม่มีข้อมูลในระบบในขณะนี้</td></tr>`;
+            return;
+        }
+
+        currentData.forEach(row => {
+            const tr = document.createElement("tr");
+            tr.className = "hover:bg-amber-50 transition";
+
+            visibleFields.forEach(f => {
+                const td = document.createElement("td");
+                td.className = "px-4 py-3 truncate max-w-xs";
+                const val = row[f.name];
+                
+                // แปลงข้อมูลการแสดงผลให้ดูง่ายขึ้น
+                if (typeof val === 'object' && val !== null) td.textContent = JSON.stringify(val);
+                else if (typeof val === 'boolean') td.innerHTML = val ? '🟢 ใช่' : '🔴 ไม่';
+                else td.textContent = val !== null ? val : '-';
+
+                tr.appendChild(td);
+            });
+
+            // เพิ่มปุ่มแก้ไขและปุ่มลบในแต่ละแถว
+            const tdActions = document.createElement("td");
+            tdActions.className = "px-4 py-3 flex gap-2 justify-center";
+            tdActions.innerHTML = `
+                <button onclick='editRow(${JSON.stringify(row)})' class="bg-amber-400 hover:bg-amber-500 text-amber-950 font-bold text-sm px-3 py-1.5 rounded-lg border-2 border-amber-900">แก้ไข</button>
+                <button onclick="deleteRow('${row.pk}')" class="bg-red-500 hover:bg-red-600 text-white font-bold text-sm px-3 py-1.5 rounded-lg border-2 border-amber-900">ลบ</button>
+            `;
+            tr.appendChild(tdActions);
+            body.appendChild(tr);
+        });
+    }
+
+    // วาดฟอร์มกรอกข้อมูลใน Modal อัตโนมัติตามโมเดล
+    function renderForm(data = {}) {
+        const container = document.getElementById("formFields");
+        container.innerHTML = "";
+
+        currentSchema.forEach(f => {
+            if (f.isPrimaryKey || f.isSystemField) {
+                // ซ่อนช่อง Primary Key (PK) ไว้เป็นตัวแปรแบบ Input Hidden
+                if (f.isPrimaryKey) {
+                    container.innerHTML += `<input type="hidden" id="field_${f.Name}" value="${data[f.Name] || ''}">`;
+                }
+                return;
+            }
+
+            const wrapper = document.createElement("div");
+            wrapper.className = "mb-4";
+
+            const label = document.createElement("label");
+            label.className = "block text-amber-900 font-extrabold mb-1.5";
+            label.textContent = f.Name + (f.IsNullable ? "" : " *");
+
+            let inputHtml = "";
+            const val = data[f.Name] !== undefined ? data[f.Name] : "";
+
+            // ตรวจสอบและสร้างชนิดของฟิลด์ข้อมูลที่เหมาะสม
+            if (f.Type === "Boolean") {
+                inputHtml = `
+                    <select id="field_${f.Name}" class="w-full border-2 border-amber-300 rounded-xl px-4 py-2.5 bg-white font-bold focus:outline-none focus:border-amber-500">
+                        <option value="true" ${val === true ? 'selected' : ''}>🟢 ใช่</option>
+                        <option value="false" ${val === false ? 'selected' : ''}>🔴 ไม่</option>
+                    </select>
+                `;
+            } else if (f.Type === "Int32" || f.Type === "Decimal" || f.Type === "Int64") {
+                inputHtml = `<input type="number" step="${f.Type === 'Decimal' ? '0.01' : '1'}" id="field_${f.Name}" value="${val}" class="w-full border-2 border-amber-300 rounded-xl px-4 py-2.5 focus:outline-none focus:border-amber-500 font-bold">`;
+            } else if (f.Name.includes("Date") || f.Name.includes("AtUtc")) {
+                let formattedDate = val;
+                if (val) formattedDate = new Date(val).toISOString().slice(0, 16); // รูปแบบสำหรับ Datetime picker
+                inputHtml = `<input type="datetime-local" id="field_${f.Name}" value="${formattedDate}" class="w-full border-2 border-amber-300 rounded-xl px-4 py-2.5 focus:outline-none focus:border-amber-500 font-semibold">`;
+            } else if (f.Name.includes("Config") || f.Name.includes("Json") || f.Name.includes("Effects")) {
+                // หากเป็นฟิลด์ที่เก็บค่า Config JSON ให้แสดงผลในกล่องข้อความขนาดใหญ่ (Textarea)
+                inputHtml = `<textarea id="field_${f.Name}" rows="4" class="w-full border-2 border-amber-300 rounded-xl px-4 py-2 bg-white font-mono focus:outline-none focus:border-amber-500">${typeof val === 'object' ? JSON.stringify(val, null, 2) : val}</textarea>`;
+            } else {
+                inputHtml = `<input type="text" id="field_${f.Name}" value="${val}" class="w-full border-2 border-amber-300 rounded-xl px-4 py-2.5 focus:outline-none focus:border-amber-500 font-semibold">`;
+            }
+
+            wrapper.appendChild(label);
+            wrapper.innerHTML += inputHtml;
+            container.appendChild(wrapper);
+        });
+    }
+
+    // ฟังก์ชันจัดการ Modal เปิด-ปิด
+    function openModal() {
+        document.getElementById("modalTitle").textContent = `➕ เพิ่มข้อมูลใหม่ลง: ${selectedEntity}`;
+        renderForm();
+        document.getElementById("formModal").classList.remove("hidden");
+    }
+
+    function editRow(row) {
+        document.getElementById("modalTitle").textContent = `✏️ แก้ไขข้อมูล: ${selectedEntity}`;
+        renderForm(row);
+        document.getElementById("formModal").classList.remove("hidden");
+    }
+
+    function closeModal() {
+        document.getElementById("formModal").classList.add("hidden");
+    }
+
+    // เก็บรวบรวมค่าจากหน้าฟอร์ม และบันทึกข้อมูล (Save) ไปที่ Controller API
+    async function saveData() {
+        const payload = {};
+        currentSchema.forEach(f => {
+            const input = document.getElementById(`field_${f.Name}`);
+            if (!input) return;
+
+            if (f.Type === "Boolean") {
+                payload[f.Name] = input.value === "true";
+            } else if (f.Type === "Int32" || f.Type === "Int64") {
+                payload[f.Name] = input.value ? parseInt(input.value) : 0;
+            } else if (f.Type === "Decimal") {
+                payload[f.Name] = input.value ? parseFloat(input.value) : 0.0;
+            } else {
+                payload[f.Name] = input.value || null;
+            }
+        });
+
+        const res = await fetch(`/api/MasterData/save/${selectedEntity}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+        });
+
+        if (res.ok) {
+            closeModal();
+            alert("💾 บันทึกข้อมูล Master Data เรียบร้อยแล้ว!");
+            onEntityChange(); // โหลดตารางใหม่ทันที
+        } else {
+            const err = await res.text();
+            alert("❌ ไม่สามารถบันทึกข้อมูลได้: " + err);
+        }
+    }
+
+    // ลบข้อมูลแถวที่เลือก
+    async function deleteRow(pk) {
+        if (!confirm("⚠️ คุณแน่ใจใช่ไหมว่าต้องการลบข้อมูลชิ้นนี้ออกจากระบบอย่างถาวร?")) return;
+
+        const res = await fetch(`/api/MasterData/delete/${selectedEntity}/${pk}`, {
+            method: "DELETE"
+        });
+
+        if (res.ok) {
+            alert("🗑️ ลบข้อมูลเรียบร้อยแล้ว!");
+            onEntityChange(); // โหลดตารางใหม่
+        } else {
+            alert("❌ ลบข้อมูลไม่สำเร็จ");
+        }
+    }
+</script>

@@ -25,7 +25,7 @@ namespace Somtumzing.Backend.Api.Data.Migrations
             //    table: "PlayerUpgrades",
             //    newName: "IX_PlayerUpgrades_PlayerPK_UpgradePK");
 
-            migrationBuilder.AddColumn<int>(
+            /*migrationBuilder.AddColumn<int>(
                 name: "BestScore",
                 table: "Users",
                 type: "integer",
@@ -63,7 +63,7 @@ namespace Somtumzing.Backend.Api.Data.Migrations
                 name: "Description",
                 table: "Upgrades",
                 type: "text",
-                nullable: true);
+                nullable: true);*/
 
             migrationBuilder.CreateTable(
                 name: "Achievements",
@@ -792,7 +792,7 @@ namespace Somtumzing.Backend.Api.Data.Migrations
             migrationBuilder.DropTable(
                 name: "PlayerSettings");
 
-            migrationBuilder.DropColumn(
+            /*migrationBuilder.DropColumn(
                 name: "BestScore",
                 table: "Users");
 
@@ -814,7 +814,7 @@ namespace Somtumzing.Backend.Api.Data.Migrations
 
             migrationBuilder.DropColumn(
                 name: "Description",
-                table: "Upgrades");
+                table: "Upgrades");*/
 
             /*migrationBuilder.RenameColumn(
                 name: "PlayerPK",
