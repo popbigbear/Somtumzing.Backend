@@ -7,14 +7,18 @@ using Somtumzing.Backend.Api.Data;
 using Somtumzing.Backend.Api.Middleware;
 using Somtumzing.Backend.Api.Models;
 using Somtumzing.Backend.Api.Services;
+using System.Text.Encodings.Web; // 👈 เพิ่ม using ตัวนี้ด้านบนสุดของไฟล์ Program.cs
+using System.Text.Json;          // 👈 เพิ่ม using ตัวนี้ด้วยครับ
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Logging.ClearProviders();
-builder.Logging.AddJsonConsole(options =>
+builder.Logging.AddSimpleConsole(options =>
 {
     options.IncludeScopes = true;
     options.UseUtcTimestamp = true;
+    options.SingleLine = false; // ปล่อยให้แสดงผลเป็นหลายบรรทัดตามหน้าตา SQL จริง
+    options.ColorBehavior = Microsoft.Extensions.Logging.Console.LoggerColorBehavior.Enabled; // เปิดใช้สีสันให้อ่านง่าย
 });
 
 var connectionString = builder.Configuration.GetConnectionString("GameDatabase")
@@ -45,7 +49,11 @@ if (auditRetentionDays < 1)
     throw new InvalidOperationException("AuditLogs:RetentionDays must be greater than zero.");
 }
 
-builder.Services.AddDbContext<GameDbContext>(options => options.UseNpgsql(connectionString));
+builder.Services.AddDbContext<GameDbContext>(options => 
+    options.UseNpgsql(connectionString)
+           .ConfigureWarnings(warnings => warnings.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning)));
+
+
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<IAuditLogWriter, AuditLogWriter>();
@@ -196,6 +204,8 @@ app.Use(async (context, next) =>
     await next(context);
 });
 app.UseMiddleware<RequestLoggingMiddleware>();
+// เพิ่มบรรทัดนี้เพื่อให้เซิร์ฟเวอร์สามารถอ่านไฟล์ใน wwwroot ได้
+app.UseStaticFiles();
 app.UseRouting();
 app.UseRateLimiter();
 app.UseAuthentication();

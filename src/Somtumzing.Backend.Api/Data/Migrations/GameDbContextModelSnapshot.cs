@@ -191,11 +191,17 @@ namespace Somtumzing.Backend.Api.Data.Migrations
                     b.Property<int>("AccessFailedCount")
                         .HasColumnType("integer");
 
+                    b.Property<int>("BestScore")
+                        .HasColumnType("integer");
+
                     b.Property<string>("Code")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
                         .HasMaxLength(40)
                         .HasColumnType("character varying(40)");
+
+                    b.Property<int>("Coins")
+                        .HasColumnType("integer");
 
                     b.Property<string>("ConcurrencyStamp")
                         .IsConcurrencyToken()
@@ -214,12 +220,18 @@ namespace Somtumzing.Backend.Api.Data.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
+                    b.Property<string>("DisplayName")
+                        .HasColumnType("text");
+
                     b.Property<string>("Email")
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
 
                     b.Property<bool>("EmailConfirmed")
                         .HasColumnType("boolean");
+
+                    b.Property<int>("Energy")
+                        .HasColumnType("integer");
 
                     b.Property<bool>("IsSuspended")
                         .HasColumnType("boolean");
@@ -267,6 +279,9 @@ namespace Somtumzing.Backend.Api.Data.Migrations
 
                     b.Property<string>("SuspensionReason")
                         .HasColumnType("text");
+
+                    b.Property<int>("TotalServed")
+                        .HasColumnType("integer");
 
                     b.Property<bool>("TwoFactorEnabled")
                         .HasColumnType("boolean");
@@ -920,6 +935,225 @@ namespace Somtumzing.Backend.Api.Data.Migrations
                     b.ToTable("CodeCounters", null, t =>
                         {
                             t.HasCheckConstraint("CK_CodeCounters_Status", "\"Status\" IN ('ACTIVE')");
+                        });
+                });
+
+            modelBuilder.Entity("Somtumzing.Backend.Api.Models.EventLeaderboard", b =>
+                {
+                    b.Property<Guid>("PK")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedDate")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<string>("DisplayName")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<string>("EventKey")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<Guid>("PlayerPK")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Score")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("UpdatedDate")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.HasKey("PK");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.HasIndex("CreatedBy");
+
+                    b.HasIndex("PlayerPK");
+
+                    b.HasIndex("UpdatedBy");
+
+                    b.HasIndex("EventKey", "PlayerPK")
+                        .IsUnique();
+
+                    b.ToTable("EventLeaderboards", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_EventLeaderboards_Status", "\"Status\" IN ('ACTIVE')");
+                        });
+                });
+
+            modelBuilder.Entity("Somtumzing.Backend.Api.Models.GameAchievement", b =>
+                {
+                    b.Property<Guid>("PK")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<string>("AchievementKey")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedDate")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("text");
+
+                    b.Property<int>("RewardCoins")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("RewardDiamonds")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)");
+
+                    b.Property<int>("TargetValue")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("UpdatedDate")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.HasKey("PK");
+
+                    b.HasIndex("AchievementKey")
+                        .IsUnique();
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.HasIndex("CreatedBy");
+
+                    b.HasIndex("UpdatedBy");
+
+                    b.ToTable("Achievements", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Achievements_Status", "\"Status\" IN ('ACTIVE')");
+                        });
+                });
+
+            modelBuilder.Entity("Somtumzing.Backend.Api.Models.GameEvent", b =>
+                {
+                    b.Property<Guid>("PK")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedDate")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("EndsAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("EventKey")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("RewardConfig")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<DateTimeOffset>("StartsAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("UpdatedDate")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.HasKey("PK");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.HasIndex("CreatedBy");
+
+                    b.HasIndex("EventKey")
+                        .IsUnique();
+
+                    b.HasIndex("UpdatedBy");
+
+                    b.ToTable("GameEvents", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_GameEvents_Status", "\"Status\" IN ('ACTIVE')");
                         });
                 });
 
@@ -1646,6 +1880,74 @@ namespace Somtumzing.Backend.Api.Data.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Somtumzing.Backend.Api.Models.Mission", b =>
+                {
+                    b.Property<Guid>("PK")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedDate")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("text");
+
+                    b.Property<string>("MissionKey")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<int>("RewardCoins")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("UpdatedDate")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.HasKey("PK");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.HasIndex("CreatedBy");
+
+                    b.HasIndex("MissionKey")
+                        .IsUnique();
+
+                    b.HasIndex("UpdatedBy");
+
+                    b.ToTable("Missions", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Missions_Status", "\"Status\" IN ('ACTIVE')");
+                        });
+                });
+
             modelBuilder.Entity("Somtumzing.Backend.Api.Models.OrderResult", b =>
                 {
                     b.Property<Guid>("PK")
@@ -1738,6 +2040,348 @@ namespace Somtumzing.Backend.Api.Data.Migrations
                     b.ToTable("OrderResults", null, t =>
                         {
                             t.HasCheckConstraint("CK_OrderResults_Status", "\"Status\" IN ('POSTED', 'VOIDED')");
+                        });
+                });
+
+            modelBuilder.Entity("Somtumzing.Backend.Api.Models.PlayerCosmetic", b =>
+                {
+                    b.Property<Guid>("PK")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("CosmeticKey")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedDate")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<string>("DisplayName")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<bool>("IsEquipped")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
+                    b.Property<Guid>("PlayerPK")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)");
+
+                    b.Property<bool>("Unlocked")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("UpdatedDate")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.HasKey("PK");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.HasIndex("CreatedBy");
+
+                    b.HasIndex("UpdatedBy");
+
+                    b.HasIndex("PlayerPK", "CosmeticKey")
+                        .IsUnique();
+
+                    b.ToTable("PlayerCosmetics", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_PlayerCosmetics_Status", "\"Status\" IN ('ACTIVE')");
+                        });
+                });
+
+            modelBuilder.Entity("Somtumzing.Backend.Api.Models.PlayerDailyState", b =>
+                {
+                    b.Property<Guid>("PK")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedDate")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<int>("CurrentStreak")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset?>("LastClaimedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("PlayerPK")
+                        .HasColumnType("uuid")
+                        .HasColumnName("PlayerPK");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)");
+
+                    b.Property<bool>("TodayClaimed")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("UpdatedDate")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.HasKey("PK");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.HasIndex("CreatedBy");
+
+                    b.HasIndex("PlayerPK")
+                        .IsUnique();
+
+                    b.HasIndex("UpdatedBy");
+
+                    b.ToTable("PlayerDailyRewards", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_PlayerDailyRewards_Status", "\"Status\" IN ('ACTIVE')");
+                        });
+                });
+
+            modelBuilder.Entity("Somtumzing.Backend.Api.Models.PlayerGameAchievement", b =>
+                {
+                    b.Property<Guid>("PK")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<string>("AchievementKey")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedDate")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<bool>("IsClaimed")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsCompleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("PlayerPK")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Progress")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("UpdatedDate")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.HasKey("PK");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.HasIndex("CreatedBy");
+
+                    b.HasIndex("UpdatedBy");
+
+                    b.HasIndex("PlayerPK", "AchievementKey")
+                        .IsUnique();
+
+                    b.ToTable("PlayerAchievements", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_PlayerAchievements_Status", "\"Status\" IN ('ACTIVE')");
+                        });
+                });
+
+            modelBuilder.Entity("Somtumzing.Backend.Api.Models.PlayerGameEvent", b =>
+                {
+                    b.Property<Guid>("PK")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedDate")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<string>("EventKey")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<bool>("IsClaimed")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsCompleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("PlayerPK")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Progress")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)");
+
+                    b.Property<int>("TargetValue")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("UpdatedDate")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.HasKey("PK");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.HasIndex("CreatedBy");
+
+                    b.HasIndex("UpdatedBy");
+
+                    b.HasIndex("PlayerPK", "EventKey")
+                        .IsUnique();
+
+                    b.ToTable("PlayerGameEvents", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_PlayerGameEvents_Status", "\"Status\" IN ('ACTIVE')");
+                        });
+                });
+
+            modelBuilder.Entity("Somtumzing.Backend.Api.Models.PlayerIngredient", b =>
+                {
+                    b.Property<Guid>("PK")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedDate")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<string>("ItemKey")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<Guid>("PlayerPK")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("UpdatedDate")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.HasKey("PK");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.HasIndex("CreatedBy");
+
+                    b.HasIndex("UpdatedBy");
+
+                    b.HasIndex("PlayerPK", "ItemKey")
+                        .IsUnique();
+
+                    b.ToTable("PlayerIngredients", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_PlayerIngredients_Status", "\"Status\" IN ('ACTIVE')");
                         });
                 });
 
@@ -1880,6 +2524,144 @@ namespace Somtumzing.Backend.Api.Data.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Somtumzing.Backend.Api.Models.PlayerMission", b =>
+                {
+                    b.Property<Guid>("PK")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedDate")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<bool>("IsClaimed")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsCompleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("MissionKey")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<Guid>("PlayerPK")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Progress")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)");
+
+                    b.Property<int>("TargetValue")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("UpdatedDate")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.HasKey("PK");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.HasIndex("CreatedBy");
+
+                    b.HasIndex("UpdatedBy");
+
+                    b.HasIndex("PlayerPK", "MissionKey")
+                        .IsUnique();
+
+                    b.ToTable("PlayerMissions", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_PlayerMissions_Status", "\"Status\" IN ('ACTIVE')");
+                        });
+                });
+
+            modelBuilder.Entity("Somtumzing.Backend.Api.Models.PlayerSetting", b =>
+                {
+                    b.Property<Guid>("PK")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<bool>("Analytics")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedDate")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<string>("Language")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.Property<Guid>("PlayerPK")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("Sound")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("UpdatedDate")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.HasKey("PK");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.HasIndex("CreatedBy");
+
+                    b.HasIndex("PlayerPK")
+                        .IsUnique();
+
+                    b.HasIndex("UpdatedBy");
+
+                    b.ToTable("PlayerSettings", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_PlayerSettings_Status", "\"Status\" IN ('ACTIVE')");
+                        });
+                });
+
             modelBuilder.Entity("Somtumzing.Backend.Api.Models.PlayerStageProgress", b =>
                 {
                     b.Property<Guid>("PK")
@@ -1982,6 +2764,9 @@ namespace Somtumzing.Backend.Api.Data.Migrations
                     b.Property<int>("Level")
                         .HasColumnType("integer");
 
+                    b.Property<Guid>("PlayerPK")
+                        .HasColumnType("uuid");
+
                     b.Property<DateTimeOffset?>("PurchasedDate")
                         .HasColumnType("timestamp with time zone");
 
@@ -2001,9 +2786,6 @@ namespace Somtumzing.Backend.Api.Data.Migrations
                     b.Property<Guid>("UpgradePK")
                         .HasColumnType("uuid");
 
-                    b.Property<Guid>("UserPK")
-                        .HasColumnType("uuid");
-
                     b.HasKey("PK");
 
                     b.HasIndex("Code")
@@ -2015,7 +2797,7 @@ namespace Somtumzing.Backend.Api.Data.Migrations
 
                     b.HasIndex("UpgradePK");
 
-                    b.HasIndex("UserPK", "UpgradePK")
+                    b.HasIndex("PlayerPK", "UpgradePK")
                         .IsUnique();
 
                     b.ToTable("PlayerUpgrades", null, t =>
@@ -2387,6 +3169,9 @@ namespace Somtumzing.Backend.Api.Data.Migrations
                         .IsRequired()
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("text");
 
                     b.Property<string>("DisplayName")
                         .IsRequired()
@@ -2802,6 +3587,51 @@ namespace Somtumzing.Backend.Api.Data.Migrations
                         .OnDelete(DeleteBehavior.Restrict);
                 });
 
+            modelBuilder.Entity("Somtumzing.Backend.Api.Models.EventLeaderboard", b =>
+                {
+                    b.HasOne("Somtumzing.Backend.Api.Models.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("CreatedBy")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Somtumzing.Backend.Api.Models.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("PlayerPK")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Somtumzing.Backend.Api.Models.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("UpdatedBy")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("Somtumzing.Backend.Api.Models.GameAchievement", b =>
+                {
+                    b.HasOne("Somtumzing.Backend.Api.Models.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("CreatedBy")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Somtumzing.Backend.Api.Models.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("UpdatedBy")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("Somtumzing.Backend.Api.Models.GameEvent", b =>
+                {
+                    b.HasOne("Somtumzing.Backend.Api.Models.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("CreatedBy")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Somtumzing.Backend.Api.Models.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("UpdatedBy")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
             modelBuilder.Entity("Somtumzing.Backend.Api.Models.GameMatch", b =>
                 {
                     b.HasOne("Somtumzing.Backend.Api.Models.ApplicationUser", null)
@@ -2990,6 +3820,19 @@ namespace Somtumzing.Backend.Api.Data.Migrations
                         .OnDelete(DeleteBehavior.Restrict);
                 });
 
+            modelBuilder.Entity("Somtumzing.Backend.Api.Models.Mission", b =>
+                {
+                    b.HasOne("Somtumzing.Backend.Api.Models.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("CreatedBy")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Somtumzing.Backend.Api.Models.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("UpdatedBy")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
             modelBuilder.Entity("Somtumzing.Backend.Api.Models.OrderResult", b =>
                 {
                     b.HasOne("Somtumzing.Backend.Api.Models.ApplicationUser", null)
@@ -3000,6 +3843,101 @@ namespace Somtumzing.Backend.Api.Data.Migrations
                     b.HasOne("Somtumzing.Backend.Api.Models.GameOrder", null)
                         .WithMany()
                         .HasForeignKey("OrderPK")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Somtumzing.Backend.Api.Models.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("UpdatedBy")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("Somtumzing.Backend.Api.Models.PlayerCosmetic", b =>
+                {
+                    b.HasOne("Somtumzing.Backend.Api.Models.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("CreatedBy")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Somtumzing.Backend.Api.Models.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("PlayerPK")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Somtumzing.Backend.Api.Models.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("UpdatedBy")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("Somtumzing.Backend.Api.Models.PlayerDailyState", b =>
+                {
+                    b.HasOne("Somtumzing.Backend.Api.Models.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("CreatedBy")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Somtumzing.Backend.Api.Models.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("PlayerPK")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Somtumzing.Backend.Api.Models.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("UpdatedBy")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("Somtumzing.Backend.Api.Models.PlayerGameAchievement", b =>
+                {
+                    b.HasOne("Somtumzing.Backend.Api.Models.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("CreatedBy")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Somtumzing.Backend.Api.Models.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("PlayerPK")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Somtumzing.Backend.Api.Models.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("UpdatedBy")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("Somtumzing.Backend.Api.Models.PlayerGameEvent", b =>
+                {
+                    b.HasOne("Somtumzing.Backend.Api.Models.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("CreatedBy")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Somtumzing.Backend.Api.Models.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("PlayerPK")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Somtumzing.Backend.Api.Models.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("UpdatedBy")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("Somtumzing.Backend.Api.Models.PlayerIngredient", b =>
+                {
+                    b.HasOne("Somtumzing.Backend.Api.Models.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("CreatedBy")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Somtumzing.Backend.Api.Models.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("PlayerPK")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
@@ -3053,6 +3991,44 @@ namespace Somtumzing.Backend.Api.Data.Migrations
                         .OnDelete(DeleteBehavior.Restrict);
                 });
 
+            modelBuilder.Entity("Somtumzing.Backend.Api.Models.PlayerMission", b =>
+                {
+                    b.HasOne("Somtumzing.Backend.Api.Models.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("CreatedBy")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Somtumzing.Backend.Api.Models.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("PlayerPK")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Somtumzing.Backend.Api.Models.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("UpdatedBy")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("Somtumzing.Backend.Api.Models.PlayerSetting", b =>
+                {
+                    b.HasOne("Somtumzing.Backend.Api.Models.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("CreatedBy")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Somtumzing.Backend.Api.Models.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("PlayerPK")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Somtumzing.Backend.Api.Models.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("UpdatedBy")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
             modelBuilder.Entity("Somtumzing.Backend.Api.Models.PlayerStageProgress", b =>
                 {
                     b.HasOne("Somtumzing.Backend.Api.Models.ApplicationUser", null)
@@ -3087,20 +4063,22 @@ namespace Somtumzing.Backend.Api.Data.Migrations
 
                     b.HasOne("Somtumzing.Backend.Api.Models.ApplicationUser", null)
                         .WithMany()
-                        .HasForeignKey("UpdatedBy")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.HasOne("Somtumzing.Backend.Api.Models.Upgrade", null)
-                        .WithMany()
-                        .HasForeignKey("UpgradePK")
+                        .HasForeignKey("PlayerPK")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("Somtumzing.Backend.Api.Models.ApplicationUser", null)
                         .WithMany()
-                        .HasForeignKey("UserPK")
+                        .HasForeignKey("UpdatedBy")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Somtumzing.Backend.Api.Models.Upgrade", "Upgrade")
+                        .WithMany()
+                        .HasForeignKey("UpgradePK")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.Navigation("Upgrade");
                 });
 
             modelBuilder.Entity("Somtumzing.Backend.Api.Models.RefreshToken", b =>
