@@ -1,30 +1,476 @@
 @page
 @model Somtumzing.Backend.Api.Pages.Admin.LoginModel
+@{
+    Layout = null; // 👈 เพิ่มบรรทัดนี้ลงไปเพื่อซ่อนแถบเมนู Layout ทั้งหมด
+    ViewData["Title"] = "Somtumzing Back Office - Sign in";
+}
 <!doctype html>
 <html lang="en">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Somtumzing Back Office - Sign in</title>
+    <title>@ViewData["Title"]</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Kanit:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* ==========================================================================
+           [แก้ไข] ดีไซน์ Tokens สำหรับระบบหลังบ้าน (รักษาตัวแปรเดิมของ Developer ครบถ้วน)
+           ========================================================================== */
+        :root {
+            --primary-color: #ff5722;
+            --primary-hover: #e64a19;
+            --primary-alpha: rgba(255, 87, 34, 0.12);
+            --bg-color: #f8f9fa;
+            --card-bg: #ffffff;
+            --text-color: #2d3748;
+            --text-muted: #718096;
+            --border-color: #e2e8f0;
+            --radius: 12px;
+            --shadow: 0 10px 25px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 0, 0, 0.03);
+            --font-family: 'Plus Jakarta Sans', 'Kanit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: var(--font-family);
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.6;
+            min-height: 100dvh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        /* ตกแต่งพื้นหลังสไตล์ส้มตำซิ่งอุ่นๆ อ่อนๆ */
+        body::before, body::after {
+            content: '';
+            position: absolute;
+            border-radius: 50%;
+            z-index: -1;
+            filter: blur(80px);
+            opacity: 0.45;
+        }
+        body::before {
+            width: 400px;
+            height: 400px;
+            background: #ffebd8;
+            top: -100px;
+            right: -100px;
+        }
+        body::after {
+            width: 450px;
+            height: 450px;
+            background: #fff0e0;
+            bottom: -150px;
+            left: -150px;
+        }
+
+        /* [แก้ไข] อัปเกรดความกว้างและการจัดหน้ากล่องฟอร์มล็อคอินให้สมดุลและหรูหราขึ้น */
+        main {
+            width: 100%;
+            max-width: 420px;
+            background: var(--card-bg);
+            padding: 40px 30px;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            border: 1px solid rgba(255, 87, 34, 0.08);
+            position: relative;
+            animation: form-entry 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        /* [แก้ไข] ดับเบิ้ลสัญลักษณ์แอด (@@keyframes) เพื่อหลบไม่ให้ Razor Engine คอมไพล์ผิดพลาดเป็น C# */
+        @@keyframes form-entry {
+            from { opacity: 0; transform: translateY(12px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .brand-logo-area {
+            text-align: center;
+            margin-bottom: 24px;
+        }
+
+        .brand-logo {
+            max-width: 130px;
+            height: auto;
+            object-fit: contain;
+            margin-bottom: 12px;
+            filter: drop-shadow(0 4px 6px rgba(255, 87, 34, 0.15));
+        }
+
+        h1 {
+            font-size: 1.6rem;
+            font-weight: 800;
+            color: #1a202c;
+            margin-bottom: 6px;
+            text-align: center;
+            letter-spacing: -0.5px;
+        }
+
+        p.subtitle {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            text-align: center;
+            margin-bottom: 28px;
+        }
+
+        form {
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            position: relative;
+        }
+
+        label {
+            font-weight: 700;
+            font-size: 0.85rem;
+            color: #4a5568;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+          /* [แก้ไขสไตล์เป็นแบบครอบคลุมพิเศษ] รองรับทั้ง input type="email", type="text", type="password" 
+           โดยระบุให้สไตล์นี้ทำงานกับทุกช่องอินพุตใน .form-group ยกเว้นปุ่ม checkbox เพื่อป้องกันไม่ให้หลุดสไตล์บนเบราว์เซอร์จริง */
+        .form-group input:not([type="checkbox"]):not([type="radio"]) {
+            width: 100%;
+            padding: 12px 14px;
+            border: 1.5px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 0.95rem;
+            font-weight: 500;
+            color: #2d3748;
+            background: #fcfdfd;
+            transition: all 0.2s ease;
+        }
+
+        .form-group input:not([type="checkbox"]):not([type="radio"]):hover {
+            border-color: #cbd5e0;
+        }
+
+        input[type="text"],
+        input[type="password"] {
+            width: 100%;
+            padding: 12px 14px;
+            border: 1.5px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 0.95rem;
+            font-weight: 500;
+            color: #2d3748;
+            background: #fcfdfd;
+            transition: all 0.2s ease;
+        }
+
+        input[type="text"]:hover,
+        input[type="password"]:hover {
+            border-color: #cbd5e0;
+        }
+
+        input[type="email"] { /* 👈 เพิ่ม selector ตัวนี้เพื่อครอบคลุมกล่องอีเมลของ ASP.NET */
+    width: 100%;
+    padding: 12px 14px;
+    border: 1.5px solid var(--border-color);
+    border-radius: 8px;
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: #2d3748;
+    background: #fcfdfd;
+    transition: all 0.2s ease;
+}
+
+input[type="email"]:hover { /* 👈 เพิ่มตรงนี้สำหรับการ Hover ด้วย */
+    border-color: #cbd5e0;
+}
+
+        input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            background: #ffffff;
+            box-shadow: 0 0 0 3.5px var(--primary-alpha);
+        }
+
+        .password-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .password-toggle-btn {
+            position: absolute;
+            right: 12px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: var(--text-muted);
+            padding: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .password-toggle-btn:hover {
+            color: var(--text-color);
+        }
+
+        .remember-me-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            user-select: none;
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #4a5568;
+            margin-top: 4px;
+        }
+
+        .remember-me-checkbox {
+            width: 18px;
+            height: 18px;
+            accent-color: var(--primary-color);
+            border: 1.5px solid var(--border-color);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        button[type="submit"] {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            font-size: 0.95rem;
+            font-weight: 700;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            box-shadow: 0 4px 10px rgba(255, 87, 34, 0.25);
+            margin-top: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+        }
+
+        button[type="submit"]:hover {
+            background-color: var(--primary-hover);
+            box-shadow: 0 6px 14px rgba(255, 87, 34, 0.35);
+            transform: translateY(-1px);
+        }
+
+        button[type="submit"]:active {
+            transform: translateY(1px);
+            box-shadow: 0 2px 6px rgba(255, 87, 34, 0.2);
+        }
+
+        .text-danger {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: #e53e3e;
+            margin-top: 2px;
+        }
+
+        div.validation-summary-errors, [role="alert"] {
+            background-color: #fff5f5;
+            color: #c53030;
+            padding: 12px 14px;
+            border-radius: 8px;
+            border: 1px solid #fed7d7;
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            list-style-type: none;
+        }
+
+        div.validation-summary-errors ul {
+            margin-left: 16px;
+        }
+
+        /* อนิเมชั่นสำหรับการสั่นเตือนเมื่อฟิลด์ว่าง */
+        @@keyframes error-shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-4px); }
+            40%, 80% { transform: translateX(4px); }
+        }
+
+        /* [แก้ไข] เพิ่มดีไซน์สำหรับ Spinner โหลดเมื่อกดยืนยันสำเร็จและกำลังจะวิ่งไปหา C# Backend */
+        .loader-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(255, 255, 255, 0.96);
+            border-radius: var(--radius);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+        }
+
+        .spinner {
+            width: 42px;
+            height: 42px;
+            border: 4px solid #fed7d7;
+            border-top-color: var(--primary-color);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-bottom: 12px;
+        }
+
+        @@keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
 </head>
 <body>
     <main>
-        <h1>Somtumzing Back Office</h1>
-        <form method="post">
+        <!-- [แก้ไข] กล่องอนิเมชั่นหมุนโหลด สไตล์เกมส้มตำซิ่ง เพื่อให้ความรู้สึกสมูทเมื่อกดส่งฟอร์มไปยังหลังบ้านสำเร็จ -->
+        <div class="loader-overlay" id="loaderOverlay">
+            <div class="spinner"></div>
+            <p style="font-weight: 800; color: #1a202c; font-size: 0.95rem;">กำลังยืนยันตัวตนกับระบบ...</p>
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 2px;">Somtumzing Back Office</p>
+        </div>
+
+        <div class="brand-logo-area">
+            <svg class="brand-logo" viewBox="0 0 100 100" width="80" height="80">
+                <ellipse cx="50" cy="72" rx="34" ry="12" fill="rgba(0,0,0,0.06)"/>
+                <path d="M22 36 C22 28, 78 28, 78 36 L68 76 C66 82, 34 82, 32 76 Z" fill="#e64a19" stroke="#3d2314" stroke-width="2.2"/>
+                <ellipse cx="50" cy="36" rx="26" ry="6" fill="#ff763b" stroke="#3d2314" stroke-width="1.8"/>
+                <path d="M52 14 L68 54 C70 58, 62 62, 58 58 L46 22 Z" fill="#8d6e63" stroke="#3d2314" stroke-width="2"/>
+                <path d="M12 45 Q5 40 22 25 Q28 20 18 35 Z" fill="#c62828" stroke="#3d2314" stroke-width="1.5"/>
+                <path d="M25 22 Q27 15 22 18" fill="none" stroke="#2e7d32" stroke-width="1.5"/>
+            </svg>
+            <h1>Somtumzing Back Office</h1>
+            <p class="subtitle">Sign in to manage your mobile food empire</p>
+        </div>
+
+        <!-- [แก้ไข] เชื่อมโยงฟอร์มไปยัง Backend สมบูรณ์แบบด้วย onsubmit="handleFormSubmit(event)" เพื่อตรวจสอบข้อมูลฟรอนต์เอนด์ก่อนส่งจริง -->
+        <form method="post" onsubmit="handleFormSubmit(event)">
+            
+            <!-- เชื่อมโยง Validation Summary จากฝั่ง C# Model -->
             <div asp-validation-summary="ModelOnly" role="alert"></div>
+
             <input type="hidden" asp-for="ReturnUrl" />
-            <label asp-for="Input.Email"></label>
-            <input asp-for="Input.Email" autocomplete="username" />
-            <span asp-validation-for="Input.Email"></span>
-            <label asp-for="Input.Password"></label>
-            <input asp-for="Input.Password" autocomplete="current-password" />
-            <span asp-validation-for="Input.Password"></span>
-            <label>
-                <input asp-for="Input.RememberMe" />
+
+            <!-- ส่วนกรอก Email และผูกข้อมูลเข้ากับ Input.Email ของ C# Model -->
+            <div class="form-group">
+                <label asp-for="Input.Email">Email Address</label>
+                <input asp-for="Input.Email" id="Input_Email" placeholder="admin@somtumzing.com" autocomplete="username" />
+                <span asp-validation-for="Input.Email" class="text-danger" id="emailValError"></span>
+            </div>
+
+            <!-- ส่วนกรอก Password และผูกข้อมูลเข้ากับ Input.Password ของ C# Model -->
+            <div class="form-group">
+                <label asp-for="Input.Password">Password</label>
+                <div class="password-wrapper">
+                    <input asp-for="Input.Password" id="Input_Password" autocomplete="current-password" placeholder="••••••••" />
+                    <button type="button" class="password-toggle-btn" id="passwordToggle" aria-label="Toggle password visibility">
+                        <svg id="eyeIcon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                            <circle cx="12" cy="12" r="3"></circle>
+                        </svg>
+                    </button>
+                </div>
+                <span asp-validation-for="Input.Password" class="text-danger" id="passwordValError"></span>
+            </div>
+
+            <!-- ส่วนปุ่ม Remember Me และผูกข้อมูลเข้ากับ Input.RememberMe ของ C# Model -->
+            <label class="remember-me-container">
+                <input asp-for="Input.RememberMe" class="remember-me-checkbox" />
                 Remember me
             </label>
-            <button type="submit">Sign in</button>
+
+            <button type="submit">
+                <span>Sign in</span>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                    <polyline points="12 5 19 12 12 19"></polyline>
+                </svg>
+            </button>
         </form>
     </main>
+
+    <script>
+        const passwordInput = document.getElementById('Input_Password');
+        const passwordToggle = document.getElementById('passwordToggle');
+        const eyeIcon = document.getElementById('eyeIcon');
+
+        // สคริปต์สลับการแสดงผลรหัสผ่าน
+        passwordToggle.addEventListener('click', () => {
+            const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+            passwordInput.setAttribute('type', type);
+
+            if (type === 'text') {
+                eyeIcon.innerHTML = `
+                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                    <line x1="1" y1="1" x2="23" y2="23"></line>
+                `;
+            } else {
+                eyeIcon.innerHTML = `
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                    <circle cx="12" cy="12" r="3"></circle>
+                `;
+            }
+        });
+
+        // [แก้ไข] สคริปต์ตรวจสอบข้อมูลและควบคุมการจัดส่งไปยัง C# Backend Controller จริงๆ 100%
+        function handleFormSubmit(event) {
+            const emailField = document.getElementById('Input_Email');
+            const passwordField = document.getElementById('Input_Password');
+            const emailErr = document.getElementById('emailValError');
+            const passwordErr = document.getElementById('passwordValError');
+            const loaderOverlay = document.getElementById('loaderOverlay');
+
+            let hasError = false;
+
+            // ตรวจสอบ Email ฝั่ง Client
+            if (!emailField.value.trim()) {
+                emailField.style.borderColor = '#e53e3e';
+                emailErr.textContent = 'The Email Address field is required.';
+                hasError = true;
+            } else {
+                emailField.style.borderColor = '';
+                emailErr.textContent = '';
+            }
+
+            // ตรวจสอบ Password ฝั่ง Client
+            if (!passwordField.value.trim()) {
+                passwordField.style.borderColor = '#e53e3e';
+                passwordErr.textContent = 'The Password field is required.';
+                hasError = true;
+            } else {
+                passwordField.style.borderColor = '';
+                passwordErr.textContent = '';
+            }
+
+            if (hasError) {
+                // หยุดการ Submit หากมีข้อผิดพลาดทางข้อมูล (ฟิลด์ว่าง)
+                event.preventDefault();
+
+                // เอฟเฟกต์สั่นการ์ดเพื่อความสวยงามสะดุดตา
+                const mainCard = document.querySelector('main');
+                mainCard.style.animation = 'none';
+                setTimeout(() => {
+                    mainCard.style.animation = 'error-shake 0.35s ease';
+                }, 10);
+            } else {
+                // [ยืนยันการผูกหลังบ้าน] หากไม่มีข้อผิดพลาด แสดงโอเวอร์เลย์วงกลมหมุนสวยงาม และปล่อยให้เบราว์เซอร์ทำการส่งค่า (POST Submit) ไปยัง C# Code-behind จริงๆ โดยไม่หยุดการส่งค่า!
+                loaderOverlay.style.display = 'flex';
+            }
+        }
+    </script>
 </body>
 </html>
