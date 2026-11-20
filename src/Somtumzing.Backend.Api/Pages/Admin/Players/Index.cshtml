@@ -1,117 +1,148 @@
 @page
 @model Somtumzing.Backend.Api.Pages.Admin.Players.IndexModel
-<!doctype html>
-<html lang="en">
-<head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Manage players - Somtumzing Back Office</title>
-    <link rel="stylesheet" href="~/css/global.css" />
-</head>
-<body>
-    <main>
-        <nav>
-            <a asp-page="/Admin/Index">Back office</a>
-            <a asp-page="/Admin/Logs/Index">Audit logs</a>
-        </nav>
-        <h1>Manage players</h1>
-        @if (TempData["StatusMessage"] is string statusMessage)
-        {
-            <p role="status">@statusMessage</p>
-        }
+@{
+    ViewData["Title"] = "จัดการผู้เล่น";
+}
 
+<div class="section-header">
+    <div>
+        <div class="section-title">จัดการผู้เล่น</div>
+        <div class="section-subtitle">ค้นหา และดูแลบัญชีผู้เล่นในระบบ</div>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
         <form method="get">
             <div asp-validation-summary="All" role="alert"></div>
-            <label asp-for="Search">Username, email, or player ID</label>
-            <input asp-for="Search" />
-            <label asp-for="Status">Account status</label>
-            <select asp-for="Status">
-                <option>All</option>
-                <option>Active</option>
-                <option>Suspended</option>
-            </select>
-            <button type="submit">Search</button>
-            <a asp-page="/Admin/Players/Index">Clear</a>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label asp-for="Search" class="form-label">ค้นหา (ชื่อ / อีเมล / ID)</label>
+                    <input asp-for="Search" placeholder="พิมพ์เพื่อค้นหา..." />
+                </div>
+                <div class="form-group">
+                    <label asp-for="Status" class="form-label">สถานะบัญชี</label>
+                    <select asp-for="Status">
+                        <option>ทั้งหมด</option>
+                        <option>ใช้งาน</option>
+                        <option>ระงับ</option>
+                    </select>
+                </div>
+                <div style="display: flex; gap: 12px; align-items: flex-end;">
+                    <button type="submit" class="btn btn-primary">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                        ค้นหา
+                    </button>
+                    <a asp-page="/Admin/Players/Index" class="btn btn-secondary">ล้าง</a>
+                </div>
+            </div>
         </form>
+    </div>
+</div>
 
-        <p>@Model.TotalCount player(s). Page @Model.CurrentPage of @Model.TotalPages.</p>
+<div class="pagination">
+    <span class="pagination-info">@Model.TotalCount ผู้เล่น · หน้า @Model.CurrentPage จาก @Model.TotalPages</span>
+    @if (Model.CurrentPage > 1)
+    {
+        <a asp-page="/Admin/Players/Index"
+           asp-route-search="@Model.Search"
+           asp-route-status="@Model.Status"
+           asp-route-pageNumber="@(Model.CurrentPage - 1)">ก่อนหน้า</a>
+    }
+    @if (Model.CurrentPage < Model.TotalPages)
+    {
+        <a asp-page="/Admin/Players/Index"
+           asp-route-search="@Model.Search"
+           asp-route-status="@Model.Status"
+           asp-route-pageNumber="@(Model.CurrentPage + 1)">ถัดไป</a>
+    }
+</div>
+
+<div class="card">
+    <div class="card-body" style="padding: 0;">
         @if (Model.Players.Count == 0)
         {
-            <p>No players match these filters.</p>
+            <div class="empty-state">
+                <div class="empty-state-icon">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="7" r="4"/><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/></svg>
+                </div>
+                <p class="empty-state-text">ไม่พบผู้เล่นที่ตรงกับเงื่อนไข</p>
+            </div>
         }
         else
         {
-            <table>
-                <thead>
-                    <tr>
-                        <th scope="col">Username</th>
-                        <th scope="col">Player ID</th>
-                        <th scope="col">Created (UTC)</th>
-                        <th scope="col">Status</th>
-                        <th scope="col">Moderation</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var player in Model.Players)
-                    {
+            <div class="table-wrapper" style="border: none;">
+                <table>
+                    <thead>
                         <tr>
-                            <td>
-                                <strong>@player.Username</strong>
-                                @if (!string.IsNullOrWhiteSpace(player.Email))
-                                {
-                                    <br />
-                                    <span>@player.Email</span>
-                                }
-                                @if (player.IsSuspended)
-                                {
-                                    <br />
-                                    <span>Suspended @player.SuspendedAtUtc?.ToString("yyyy-MM-dd HH:mm:ss") UTC</span>
-                                    <br />
-                                    <span>Reason: @player.SuspensionReason</span>
-                                }
-                            </td>
-                            <td>@player.Id</td>
-                            <td>@player.CreatedAtUtc.ToString("yyyy-MM-dd HH:mm:ss")</td>
-                            <td>@(player.IsSuspended ? "Suspended" : "Active")</td>
-                            <td>
-                                <form method="post" asp-page-handler="@(player.IsSuspended ? "Reactivate" : "Suspend")">
-                                    <input type="hidden" name="Input.UserId" value="@player.Id" />
-                                    <input type="hidden" name="Search" value="@Model.Search" />
-                                    <input type="hidden" name="Status" value="@Model.Status" />
-                                    <input type="hidden" name="PageNumber" value="@Model.CurrentPage" />
-                                    <label for="reason-@player.Id">
-                                        @(player.IsSuspended ? "Reason for reactivation" : "Reason for suspension")
-                                    </label>
-                                    <input id="reason-@player.Id"
-                                           name="Input.Reason"
-                                           maxlength="500"
-                                           minlength="3"
-                                           required />
-                                    <button type="submit">@(player.IsSuspended ? "Reactivate" : "Suspend")</button>
-                                </form>
-                            </td>
+                            <th>ผู้เล่น</th>
+                            <th>รหัส</th>
+                            <th>สร้างเมื่อ (UTC)</th>
+                            <th>สถานะ</th>
+                            <th>การดำเนินการ</th>
                         </tr>
-                    }
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody>
+                        @foreach (var player in Model.Players)
+                        {
+                            <tr>
+                                <td>
+                                    <div class="font-bold">@player.Username</div>
+                                    @if (!string.IsNullOrWhiteSpace(player.Email))
+                                    {
+                                        <div class="text-xs text-muted">@player.Email</div>
+                                    }
+                                    @if (player.IsSuspended)
+                                    {
+                                        <div class="text-xs text-danger" style="margin-top: 4px;">
+                                            ระงับเมื่อ @player.SuspendedAtUtc?.ToString("yyyy-MM-dd HH:mm")
+                                        </div>
+                                        @if (!string.IsNullOrWhiteSpace(player.SuspensionReason))
+                                        {
+                                            <div class="text-xs text-muted">เหตุผล: @player.SuspensionReason</div>
+                                        }
+                                    }
+                                </td>
+                                <td><code>@player.Id</code></td>
+                                <td class="text-sm">@player.CreatedAtUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                                <td>
+                                    @if (player.IsSuspended)
+                                    {
+                                        <span class="badge badge-danger"><span class="badge-dot danger"></span>ระงับ</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge badge-success"><span class="badge-dot success"></span>ใช้งาน</span>
+                                    }
+                                </td>
+                                <td>
+                                    <form method="post" asp-page-handler="@(player.IsSuspended ? "Reactivate" : "Suspend")" style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                                        <input type="hidden" name="Input.UserId" value="@player.Id" />
+                                        <input type="hidden" name="Search" value="@Model.Search" />
+                                        <input type="hidden" name="Status" value="@Model.Status" />
+                                        <input type="hidden" name="PageNumber" value="@Model.CurrentPage" />
+                                        <input id="reason-@player.Id"
+                                               name="Input.Reason"
+                                               placeholder="เหตุผล..."
+                                               maxlength="500"
+                                               minlength="3"
+                                               required
+                                               style="width: 180px; padding: 7px 10px; font-size: 0.82rem;" />
+                                        @if (player.IsSuspended)
+                                        {
+                                            <button type="submit" class="btn btn-success btn-sm">ปลดระงับ</button>
+                                        }
+                                        else
+                                        {
+                                            <button type="submit" class="btn btn-danger btn-sm">ระงับ</button>
+                                        }
+                                    </form>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
         }
-
-        <nav aria-label="Player pages">
-            @if (Model.CurrentPage > 1)
-            {
-                <a asp-page="/Admin/Players/Index"
-                   asp-route-search="@Model.Search"
-                   asp-route-status="@Model.Status"
-                   asp-route-pageNumber="@(Model.CurrentPage - 1)">Previous</a>
-            }
-            @if (Model.CurrentPage < Model.TotalPages)
-            {
-                <a asp-page="/Admin/Players/Index"
-                   asp-route-search="@Model.Search"
-                   asp-route-status="@Model.Status"
-                   asp-route-pageNumber="@(Model.CurrentPage + 1)">Next</a>
-            }
-        </nav>
-    </main>
-</body>
-</html>
+    </div>
+</div>

@@ -1,0 +1,102 @@
+@using Microsoft.AspNetCore.Mvc.Rendering
+<!doctype html>
+<html lang="th">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>@ViewData["Title"] - Somtumzing Back Office</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Kanit:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="~/css/admin.css" asp-append-version="true" />
+    @await RenderSectionAsync("Styles", required: false)
+</head>
+<body>
+    <div class="app-shell">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-brand">
+                <svg viewBox="0 0 100 100" width="44" height="44" aria-hidden="true">
+                    <ellipse cx="50" cy="72" rx="34" ry="12" fill="rgba(0,0,0,0.08)"/>
+                    <path d="M22 36 C22 28, 78 28, 78 36 L68 76 C66 82, 34 82, 32 76 Z" fill="#e64a19" stroke="#3d2314" stroke-width="2.2"/>
+                    <ellipse cx="50" cy="36" rx="26" ry="6" fill="#ff763b" stroke="#3d2314" stroke-width="1.8"/>
+                    <path d="M52 14 L68 54 C70 58, 62 62, 58 58 L46 22 Z" fill="#8d6e63" stroke="#3d2314" stroke-width="2"/>
+                    <path d="M12 45 Q5 40 22 25 Q28 20 18 35 Z" fill="#c62828" stroke="#3d2314" stroke-width="1.5"/>
+                </svg>
+                <span class="sidebar-brand-text">Somtumzing</span>
+            </div>
+
+            <nav class="sidebar-nav">
+                <a asp-page="/Admin/Index" class="sidebar-link @(ViewContext.RouteData.Values["page"]?.ToString() == "/Admin/Index" ? "active" : "")">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                    <span>แดชบอร์ด</span>
+                </a>
+                <a asp-page="/Admin/Players/Index" class="sidebar-link @(ViewContext.RouteData.Values["page"]?.ToString()?.StartsWith("/Admin/Players") == true ? "active" : "")">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                    <span>จัดการผู้เล่น</span>
+                </a>
+                <a asp-page="/Admin/MasterData" class="sidebar-link @(ViewContext.RouteData.Values["page"]?.ToString() == "/Admin/MasterData" ? "active" : "")">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                    <span>ข้อมูลเกม (Master Data)</span>
+                </a>
+                <a asp-page="/Admin/Reports" class="sidebar-link @(ViewContext.RouteData.Values["page"]?.ToString() == "/Admin/Reports" ? "active" : "")">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>
+                    <span>รายงาน (Reports)</span>
+                </a>
+                <a asp-page="/Admin/Logs/Index" class="sidebar-link @(ViewContext.RouteData.Values["page"]?.ToString()?.StartsWith("/Admin/Logs") == true ? "active" : "")">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                    <span>บันทึกระบบ (Audit Logs)</span>
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="sidebar-user">
+                    <div class="sidebar-user-avatar">A</div>
+                    <div class="sidebar-user-info">
+                        <span class="sidebar-user-name">@User.Identity?.Name</span>
+                        <span class="sidebar-user-role">Administrator</span>
+                    </div>
+                </div>
+                <form method="post" asp-page="/Admin/Index" asp-page-handler="SignOut" class="sidebar-signout-form">
+                    <button type="submit" class="sidebar-signout-btn">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                        <span>ออกจากระบบ</span>
+                    </button>
+                </form>
+            </div>
+        </aside>
+
+        <!-- Mobile overlay -->
+        <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+
+        <!-- Main content -->
+        <div class="main-area">
+            <header class="topbar">
+                <button class="topbar-menu-btn" onclick="toggleSidebar()" aria-label="เมนู">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+                </button>
+                <h1 class="topbar-title">@ViewData["Title"]</h1>
+            </header>
+
+            <main class="content">
+                @if (TempData["StatusMessage"] is string statusMessage)
+                {
+                    <div class="alert alert-info" role="status">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                        <span>@statusMessage</span>
+                    </div>
+                }
+                @RenderBody()
+            </main>
+        </div>
+    </div>
+
+    <script>
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('open');
+            document.getElementById('sidebarOverlay').classList.toggle('show');
+        }
+    </script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

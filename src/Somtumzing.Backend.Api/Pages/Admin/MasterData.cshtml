@@ -1,289 +1,346 @@
 @page
-@model MasterDataModel
+@model Somtumzing.Backend.Api.Pages.Admin.MasterDataModel
 @{
-    ViewData["Title"] = "บริหารจัดการข้อมูลเกม - ส้มตำซิ่ง";
-    Layout = "_Layout"; // อ้างอิงเลย์เอาต์หลังบ้านแอดมินของคุณ
+    ViewData["Title"] = "ข้อมูลเกม (Master Data)";
 }
 
-<div class="container mx-auto px-4 py-6" id="masterDataApp">
-    <!-- แผงหัวกระดาษการ์ตูนแบบส้มตำซิ่ง -->
-    <div class="bg-amber-100 border-4 border-amber-900 rounded-3xl p-6 shadow-xl mb-8 flex flex-col md:flex-row justify-between items-center">
-        <div>
-            <h1 class="text-3xl font-extrabold text-amber-900 flex items-center gap-2">
-                🌶️ แผงจัดการข้อมูลเกม (Master Data)
-            </h1>
-            <p class="text-amber-800 font-semibold mt-1">บริหารด่านเกม, รางวัล, กิจกรรมปั่นป่วน และความสำเร็จหลังบ้าน</p>
-        </div>
-        
-        <div class="mt-4 md:mt-0 flex gap-4 w-full md:w-auto">
-            <select id="entitySelector" onchange="onEntityChange()" class="border-4 border-amber-900 bg-white text-amber-900 font-bold rounded-2xl px-4 py-3 focus:outline-none flex-grow">
-                <option value="">-- เลือกประเภทข้อมูลที่ต้องการจัดการ --</option>
-            </select>
-            
-            <button onclick="openModal()" id="btnNew" class="hidden bg-emerald-500 hover:bg-emerald-600 text-white font-extrabold px-6 py-3 rounded-2xl border-4 border-amber-900 shadow-md transform active:scale-95 transition flex-shrink-0">
-                ➕ เพิ่มข้อมูลใหม่
-            </button>
-        </div>
+<div class="section-header">
+    <div>
+        <div class="section-title">ข้อมูลเกม (Master Data)</div>
+        <div class="section-subtitle">บริหารด่านเกม รางวัล กิจกรรม ความสำเร็จ และการ์ดซิ่ง</div>
     </div>
+    <div style="display: flex; gap: 12px; align-items: center;">
+        <select id="entitySelector" onchange="onEntityChange()" class="form-control" style="min-width: 240px;">
+            <option value="">-- เลือกประเภทข้อมูล --</option>
+        </select>
+        <button onclick="openModal()" id="btnNew" class="btn btn-success" style="display: none;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            เพิ่มข้อมูลใหม่
+        </button>
+    </div>
+</div>
 
-    <!-- โซนแสดงข้อมูลตารางแบบไดนามิก -->
-    <div class="bg-white border-4 border-amber-900 rounded-3xl p-6 shadow-xl hidden" id="tableContainer">
-        <div class="overflow-x-auto rounded-2xl border-2 border-amber-200">
-            <table class="w-full text-left border-collapse" id="dynamicTable">
+<div class="card" id="tableContainer" style="display: none;">
+    <div class="card-body" style="padding: 0;">
+        <div class="table-wrapper" style="border: none;">
+            <table id="dynamicTable">
                 <thead>
-                    <tr class="bg-amber-500 text-amber-95 text-lg font-bold border-b-4 border-amber-900" id="tableHeader">
-                        <!-- หัวข้อคอลัมน์จะถูกวาดจาก JS -->
-                    </tr>
+                    <tr id="tableHeader"></tr>
                 </thead>
-                <tbody id="tableBody" class="text-amber-900 font-medium divide-y divide-amber-100">
-                    <!-- ข้อมูลจะถูกวาดจาก JS -->
-                </tbody>
+                <tbody id="tableBody"></tbody>
             </table>
-        </div>
-    </div>
-
-    <!-- หน้าต่างป๊อปอัปกรอก/แก้ไขข้อมูล (Modal Form) -->
-    <div id="formModal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center p-4 z-50">
-        <div class="bg-amber-50 border-8 border-amber-900 rounded-3xl w-full max-w-2xl shadow-2xl max-h-[90vh] flex flex-col">
-            <!-- Modal Header -->
-            <div class="bg-amber-100 p-4 border-b-4 border-amber-900 flex justify-between items-center rounded-t-xl">
-                <h3 class="text-2xl font-black text-amber-900" id="modalTitle">ฟอร์มแก้ไขข้อมูล</h3>
-                <button onclick="closeModal()" class="text-amber-900 font-black text-3xl hover:text-red-600">×</button>
-            </div>
-            
-            <!-- Modal Body Form -->
-            <div class="p-6 overflow-y-auto flex-grow" id="formFields">
-                <!-- กล่องกรอกข้อมูลประเภทต่างๆ จะวาดผ่าน JS อัตโนมัติ -->
-            </div>
-            
-            <!-- Modal Footer Buttons -->
-            <div class="bg-amber-100 p-4 border-t-4 border-amber-900 flex justify-end gap-4 rounded-b-xl">
-                <button onclick="closeModal()" class="bg-gray-400 hover:bg-gray-500 text-white font-extrabold px-6 py-2.5 rounded-xl border-4 border-amber-900">ยกเลิก</button>
-                <button onclick="saveData()" class="bg-emerald-500 hover:bg-emerald-600 text-white font-extrabold px-6 py-2.5 rounded-xl border-4 border-amber-900 shadow-md">💾 บันทึกข้อมูล</button>
-            </div>
         </div>
     </div>
 </div>
 
+<div class="card" id="emptyStateContainer">
+    <div class="card-body">
+        <div class="empty-state">
+            <div class="empty-state-icon">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            </div>
+            <p class="empty-state-text">เลือกประเภทข้อมูลด้านบนเพื่อเริ่มจัดการ</p>
+        </div>
+    </div>
+</div>
+
+<!-- Modal -->
+<div class="modal-overlay" id="formModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h3 class="modal-title" id="modalTitle">ฟอร์มข้อมูล</h3>
+            <button type="button" onclick="closeModal()" class="modal-close" aria-label="ปิด">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+        </div>
+        <div class="modal-body">
+            <form id="modalForm" onsubmit="saveData(event)" style="display: flex; flex-direction: column; gap: 16px;">
+                <div id="formFields"></div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button type="button" onclick="closeModal()" class="btn btn-secondary">ยกเลิก</button>
+            <button type="submit" form="modalForm" class="btn btn-primary">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                บันทึก
+            </button>
+        </div>
+    </div>
+</div>
+
+<div id="toastContainer" style="position: fixed; bottom: 24px; right: 24px; z-index: 300; display: flex; flex-direction: column; gap: 8px;"></div>
+
+@section Scripts {
 <script>
     let currentSchema = [];
     let currentData = [];
     let selectedEntity = "";
 
-    // รันเมื่อหน้าเพจโหลดสำเร็จ
     document.addEventListener("DOMContentLoaded", async () => {
-        const res = await fetch("/api/MasterData/types");
-        const types = await res.json();
-        const selector = document.getElementById("entitySelector");
-        types.forEach(t => {
-            const opt = document.createElement("option");
-            opt.value = t.name;
-            opt.textContent = `📋 จัดการ: ${t.name}`;
-            selector.appendChild(opt);
-        });
+        try {
+            const res = await fetch("/api/MasterData/types");
+            const types = await res.json();
+            const selector = document.getElementById("entitySelector");
+            types.forEach(t => {
+                const opt = document.createElement("option");
+                opt.value = t.name;
+                opt.textContent = t.name;
+                selector.appendChild(opt);
+            });
+        } catch (e) {
+            showToast("ไม่สามารถโหลดประเภทข้อมูลได้", "error");
+        }
     });
 
-    // เมื่อแอดมินเปลี่ยนสลับตารางข้อมูล
     async function onEntityChange() {
         selectedEntity = document.getElementById("entitySelector").value;
         const btnNew = document.getElementById("btnNew");
         const tableContainer = document.getElementById("tableContainer");
-        
+        const emptyStateContainer = document.getElementById("emptyStateContainer");
+
         if (!selectedEntity) {
-            btnNew.classList.add("hidden");
-            tableContainer.classList.add("hidden");
+            btnNew.style.display = "none";
+            tableContainer.style.display = "none";
+            emptyStateContainer.style.display = "block";
             return;
         }
 
-        btnNew.classList.remove("hidden");
-        tableContainer.classList.remove("hidden");
+        btnNew.style.display = "inline-flex";
+        tableContainer.style.display = "block";
+        emptyStateContainer.style.display = "none";
 
-        // โหลด Schema และ Data พร้อมกัน
-        const [schemaRes, dataRes] = await Promise.all([
-            fetch(`/api/MasterData/schema/${selectedEntity}`),
-            fetch(`/api/MasterData/data/${selectedEntity}`)
-        ]);
-
-        currentSchema = await schemaRes.json();
-        currentData = await dataRes.json();
-
-        renderTable();
+        try {
+            const [schemaRes, dataRes] = await Promise.all([
+                fetch(`/api/MasterData/schema/${selectedEntity}`),
+                fetch(`/api/MasterData/data/${selectedEntity}`)
+            ]);
+            currentSchema = await schemaRes.json();
+            currentData = await dataRes.json();
+            renderTable();
+        } catch (e) {
+            showToast("โหลดข้อมูลไม่สำเร็จ", "error");
+        }
     }
 
-    // วาดตารางข้อมูลแบบไดนามิกตามโครงสร้าง Schema
     function renderTable() {
         const header = document.getElementById("tableHeader");
         const body = document.getElementById("tableBody");
         header.innerHTML = "";
         body.innerHTML = "";
 
-        // เลือกเฉพาะคอลัมน์สำคัญมาโชว์ในตารางเพื่อไม่ให้แถวยาวเกินไป
         const visibleFields = currentSchema.filter(s => !s.isSystemField);
 
-        // วาดหัวข้อตาราง (Header)
         visibleFields.forEach(f => {
             const th = document.createElement("th");
-            th.className = "px-4 py-3";
             th.textContent = f.name;
             header.appendChild(th);
         });
-        
-        // เพิ่มคอลัมน์ตัวเลือกจัดการ
+
         const thActions = document.createElement("th");
-        thActions.className = "px-4 py-3 text-center w-36";
         thActions.textContent = "จัดการ";
+        thActions.style.textAlign = "center";
+        thActions.style.whiteSpace = "nowrap";
         header.appendChild(thActions);
 
-        // วาดเนื้อหาข้อมูล (Body)
         if (currentData.length === 0) {
-            body.innerHTML = `<tr><td colspan="${visibleFields.length + 1}" class="text-center py-8 text-amber-500 font-bold">ไม่มีข้อมูลในระบบในขณะนี้</td></tr>`;
+            const colspan = visibleFields.length + 1;
+            body.innerHTML = `<tr><td colspan="${colspan}"><div class="empty-state"><p class="empty-state-text">ยังไม่มีข้อมูลในระบบ</p></div></td></tr>`;
             return;
         }
 
         currentData.forEach(row => {
             const tr = document.createElement("tr");
-            tr.className = "hover:bg-amber-50 transition";
 
             visibleFields.forEach(f => {
                 const td = document.createElement("td");
-                td.className = "px-4 py-3 truncate max-w-xs";
                 const val = row[f.name];
-                
-                // แปลงข้อมูลการแสดงผลให้ดูง่ายขึ้น
-                if (typeof val === 'object' && val !== null) td.textContent = JSON.stringify(val);
-                else if (typeof val === 'boolean') td.innerHTML = val ? '🟢 ใช่' : '🔴 ไม่';
-                else td.textContent = val !== null ? val : '-';
-
+                if (typeof val === 'object' && val !== null) {
+                    td.textContent = JSON.stringify(val);
+                } else if (typeof val === 'boolean') {
+                    if (val) {
+                        td.innerHTML = '<span class="badge badge-success">ใช่</span>';
+                    } else {
+                        td.innerHTML = '<span class="badge badge-neutral">ไม่</span>';
+                    }
+                } else {
+                    td.textContent = val !== null && val !== undefined ? val : '-';
+                }
                 tr.appendChild(td);
             });
 
-            // เพิ่มปุ่มแก้ไขและปุ่มลบในแต่ละแถว
             const tdActions = document.createElement("td");
-            tdActions.className = "px-4 py-3 flex gap-2 justify-center";
-            tdActions.innerHTML = `
-                <button onclick='editRow(${JSON.stringify(row)})' class="bg-amber-400 hover:bg-amber-500 text-amber-950 font-bold text-sm px-3 py-1.5 rounded-lg border-2 border-amber-900">แก้ไข</button>
-                <button onclick="deleteRow('${row.pk}')" class="bg-red-500 hover:bg-red-600 text-white font-bold text-sm px-3 py-1.5 rounded-lg border-2 border-amber-900">ลบ</button>
-            `;
+            tdActions.style.textAlign = "center";
+            tdActions.style.whiteSpace = "nowrap";
+            const editBtn = document.createElement("button");
+            editBtn.className = "btn btn-secondary btn-sm";
+            editBtn.textContent = "แก้ไข";
+            editBtn.onclick = () => editRow(row);
+
+            const delBtn = document.createElement("button");
+            delBtn.className = "btn btn-danger btn-sm";
+            delBtn.textContent = "ลบ";
+            delBtn.style.marginLeft = "8px";
+            delBtn.onclick = () => deleteRow(row.pk);
+
+            tdActions.appendChild(editBtn);
+            tdActions.appendChild(delBtn);
             tr.appendChild(tdActions);
             body.appendChild(tr);
         });
     }
 
-    // วาดฟอร์มกรอกข้อมูลใน Modal อัตโนมัติตามโมเดล
     function renderForm(data = {}) {
         const container = document.getElementById("formFields");
         container.innerHTML = "";
 
         currentSchema.forEach(f => {
-            if (f.isPrimaryKey || f.isSystemField) {
-                // ซ่อนช่อง Primary Key (PK) ไว้เป็นตัวแปรแบบ Input Hidden
-                if (f.isPrimaryKey) {
-                    container.innerHTML += `<input type="hidden" id="field_${f.Name}" value="${data[f.Name] || ''}">`;
-                }
+            if (f.isPrimaryKey) {
+                const hidden = document.createElement("input");
+                hidden.type = "hidden";
+                hidden.id = `field_${f.name}`;
+                hidden.value = data[f.name] || '';
+                container.appendChild(hidden);
                 return;
             }
+            if (f.isSystemField) return;
 
             const wrapper = document.createElement("div");
-            wrapper.className = "mb-4";
+            wrapper.className = "form-group";
 
             const label = document.createElement("label");
-            label.className = "block text-amber-900 font-extrabold mb-1.5";
-            label.textContent = f.Name + (f.IsNullable ? "" : " *");
+            label.className = "form-label";
+            label.textContent = f.name + (f.isNullable ? "" : " *");
+            label.htmlFor = `field_${f.name}`;
 
-            let inputHtml = "";
-            const val = data[f.Name] !== undefined ? data[f.Name] : "";
+            const val = data[f.name] !== undefined ? data[f.name] : "";
+            let input;
 
-            // ตรวจสอบและสร้างชนิดของฟิลด์ข้อมูลที่เหมาะสม
-            if (f.Type === "Boolean") {
-                inputHtml = `
-                    <select id="field_${f.Name}" class="w-full border-2 border-amber-300 rounded-xl px-4 py-2.5 bg-white font-bold focus:outline-none focus:border-amber-500">
-                        <option value="true" ${val === true ? 'selected' : ''}>🟢 ใช่</option>
-                        <option value="false" ${val === false ? 'selected' : ''}>🔴 ไม่</option>
-                    </select>
-                `;
-            } else if (f.Type === "Int32" || f.Type === "Decimal" || f.Type === "Int64") {
-                inputHtml = `<input type="number" step="${f.Type === 'Decimal' ? '0.01' : '1'}" id="field_${f.Name}" value="${val}" class="w-full border-2 border-amber-300 rounded-xl px-4 py-2.5 focus:outline-none focus:border-amber-500 font-bold">`;
-            } else if (f.Name.includes("Date") || f.Name.includes("AtUtc")) {
-                let formattedDate = val;
-                if (val) formattedDate = new Date(val).toISOString().slice(0, 16); // รูปแบบสำหรับ Datetime picker
-                inputHtml = `<input type="datetime-local" id="field_${f.Name}" value="${formattedDate}" class="w-full border-2 border-amber-300 rounded-xl px-4 py-2.5 focus:outline-none focus:border-amber-500 font-semibold">`;
-            } else if (f.Name.includes("Config") || f.Name.includes("Json") || f.Name.includes("Effects")) {
-                // หากเป็นฟิลด์ที่เก็บค่า Config JSON ให้แสดงผลในกล่องข้อความขนาดใหญ่ (Textarea)
-                inputHtml = `<textarea id="field_${f.Name}" rows="4" class="w-full border-2 border-amber-300 rounded-xl px-4 py-2 bg-white font-mono focus:outline-none focus:border-amber-500">${typeof val === 'object' ? JSON.stringify(val, null, 2) : val}</textarea>`;
+            if (f.type === "Boolean") {
+                input = document.createElement("select");
+                input.innerHTML = `<option value="true" ${val === true ? 'selected' : ''}>ใช่</option><option value="false" ${val === false ? 'selected' : ''}>ไม่</option>`;
+            } else if (f.type === "Int32" || f.type === "Int64") {
+                input = document.createElement("input");
+                input.type = "number";
+                input.step = "1";
+                input.value = val;
+            } else if (f.type === "Decimal") {
+                input = document.createElement("input");
+                input.type = "number";
+                input.step = "0.01";
+                input.value = val;
+            } else if (f.name.includes("Date") || f.name.includes("AtUtc")) {
+                input = document.createElement("input");
+                input.type = "datetime-local";
+                if (val) input.value = new Date(val).toISOString().slice(0, 16);
+            } else if (f.name.includes("Config") || f.name.includes("Json") || f.name.includes("Effects")) {
+                input = document.createElement("textarea");
+                input.rows = 4;
+                input.style.fontFamily = "monospace";
+                input.value = typeof val === 'object' ? JSON.stringify(val, null, 2) : (val || "");
             } else {
-                inputHtml = `<input type="text" id="field_${f.Name}" value="${val}" class="w-full border-2 border-amber-300 rounded-xl px-4 py-2.5 focus:outline-none focus:border-amber-500 font-semibold">`;
+                input = document.createElement("input");
+                input.type = "text";
+                input.value = val;
             }
 
+            input.id = `field_${f.name}`;
+            input.className = "form-control";
+
             wrapper.appendChild(label);
-            wrapper.innerHTML += inputHtml;
+            wrapper.appendChild(input);
             container.appendChild(wrapper);
         });
     }
 
-    // ฟังก์ชันจัดการ Modal เปิด-ปิด
     function openModal() {
-        document.getElementById("modalTitle").textContent = `➕ เพิ่มข้อมูลใหม่ลง: ${selectedEntity}`;
+        document.getElementById("modalTitle").textContent = `เพิ่มข้อมูล: ${selectedEntity}`;
         renderForm();
-        document.getElementById("formModal").classList.remove("hidden");
+        document.getElementById("formModal").classList.add("show");
     }
 
     function editRow(row) {
-        document.getElementById("modalTitle").textContent = `✏️ แก้ไขข้อมูล: ${selectedEntity}`;
+        document.getElementById("modalTitle").textContent = `แก้ไข: ${selectedEntity}`;
         renderForm(row);
-        document.getElementById("formModal").classList.remove("hidden");
+        document.getElementById("formModal").classList.add("show");
     }
 
     function closeModal() {
-        document.getElementById("formModal").classList.add("hidden");
+        document.getElementById("formModal").classList.remove("show");
     }
 
-    // เก็บรวบรวมค่าจากหน้าฟอร์ม และบันทึกข้อมูล (Save) ไปที่ Controller API
-    async function saveData() {
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') closeModal();
+    });
+
+    async function saveData(event) {
+        event.preventDefault();
         const payload = {};
         currentSchema.forEach(f => {
-            const input = document.getElementById(`field_${f.Name}`);
+            const input = document.getElementById(`field_${f.name}`);
             if (!input) return;
 
-            if (f.Type === "Boolean") {
-                payload[f.Name] = input.value === "true";
-            } else if (f.Type === "Int32" || f.Type === "Int64") {
-                payload[f.Name] = input.value ? parseInt(input.value) : 0;
-            } else if (f.Type === "Decimal") {
-                payload[f.Name] = input.value ? parseFloat(input.value) : 0.0;
+            if (f.type === "Boolean") {
+                payload[f.name] = input.value === "true";
+            } else if (f.type === "Int32" || f.type === "Int64") {
+                payload[f.name] = input.value ? parseInt(input.value) : 0;
+            } else if (f.type === "Decimal") {
+                payload[f.name] = input.value ? parseFloat(input.value) : 0.0;
             } else {
-                payload[f.Name] = input.value || null;
+                payload[f.name] = input.value || null;
             }
         });
 
-        const res = await fetch(`/api/MasterData/save/${selectedEntity}`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload)
-        });
+        try {
+            const res = await fetch(`/api/MasterData/save/${selectedEntity}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
 
-        if (res.ok) {
-            closeModal();
-            alert("💾 บันทึกข้อมูล Master Data เรียบร้อยแล้ว!");
-            onEntityChange(); // โหลดตารางใหม่ทันที
-        } else {
-            const err = await res.text();
-            alert("❌ ไม่สามารถบันทึกข้อมูลได้: " + err);
+            if (res.ok) {
+                closeModal();
+                showToast("บันทึกข้อมูลเรียบร้อย", "success");
+                onEntityChange();
+            } else {
+                const err = await res.text();
+                showToast("ไม่สามารถบันทึกได้: " + err, "error");
+            }
+        } catch (e) {
+            showToast("เกิดข้อผิดพลาดในการบันทึก", "error");
         }
     }
 
-    // ลบข้อมูลแถวที่เลือก
     async function deleteRow(pk) {
-        if (!confirm("⚠️ คุณแน่ใจใช่ไหมว่าต้องการลบข้อมูลชิ้นนี้ออกจากระบบอย่างถาวร?")) return;
+        if (!confirm("คุณแน่ใจหรือไม่ว่าต้องการลบข้อมูลนี้?")) return;
 
-        const res = await fetch(`/api/MasterData/delete/${selectedEntity}/${pk}`, {
-            method: "DELETE"
-        });
-
-        if (res.ok) {
-            alert("🗑️ ลบข้อมูลเรียบร้อยแล้ว!");
-            onEntityChange(); // โหลดตารางใหม่
-        } else {
-            alert("❌ ลบข้อมูลไม่สำเร็จ");
+        try {
+            const res = await fetch(`/api/MasterData/delete/${selectedEntity}/${pk}`, { method: "DELETE" });
+            if (res.ok) {
+                showToast("ลบข้อมูลเรียบร้อย", "success");
+                onEntityChange();
+            } else {
+                showToast("ลบข้อมูลไม่สำเร็จ", "error");
+            }
+        } catch (e) {
+            showToast("เกิดข้อผิดพลาดในการลบ", "error");
         }
+    }
+
+    function showToast(message, type) {
+        const container = document.getElementById("toastContainer");
+        const toast = document.createElement("div");
+        const bgClass = type === "success" ? "alert-success" : type === "error" ? "alert-danger" : "alert-info";
+        toast.className = `alert ${bgClass}`;
+        toast.style.minWidth = "280px";
+        toast.style.boxShadow = "var(--shadow-md)";
+        toast.style.animation = "slide-up 0.3s ease";
+        toast.textContent = message;
+        container.appendChild(toast);
+        setTimeout(() => {
+            toast.style.opacity = "0";
+            toast.style.transition = "opacity 0.3s";
+            setTimeout(() => toast.remove(), 300);
+        }, 3000);
     }
 </script>
+}

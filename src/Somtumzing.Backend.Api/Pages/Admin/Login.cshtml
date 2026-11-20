@@ -1,505 +1,96 @@
+@page
+@model Somtumzing.Backend.Api.Pages.Admin.LoginModel
+@{
+    Layout = null;
+}
 <!doctype html>
-<html lang="en">
+<html lang="th">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Somtumzing Back Office - Sign in</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Kanit:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <style>
-    /* ==========================================
-       Somtumzing BackOffice Global Stylesheet & Variables
-       ========================================== */
-    :root {
-      --primary-color: #ff5722; /* ธีมส้มตำ: ส้มจัดจ้าน */
-      --primary-hover: #e64a19;
-      --primary-alpha: rgba(255, 87, 34, 0.12);
-      --bg-color: #f8f9fa;
-      --card-bg: #ffffff;
-      --text-color: #2d3748;
-      --text-muted: #718096;
-      --border-color: #e2e8f0;
-      --radius: 12px;
-      --shadow: 0 10px 25px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 0, 0, 0.03);
-      --font-family: 'Plus Jakarta Sans', 'Kanit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    }
-
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
-
-    body {
-      font-family: var(--font-family);
-      background-color: var(--bg-color);
-      color: var(--text-color);
-      line-height: 1.6;
-      min-height: 100dvh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 20px;
-      position: relative;
-      overflow-x: hidden;
-    }
-
-    /* Soft Warm Background Accents representing food/spice theme */
-    body::before, body::after {
-      content: '';
-      position: absolute;
-      border-radius: 50%;
-      z-index: -1;
-      filter: blur(80px);
-      opacity: 0.45;
-    }
-    body::before {
-      width: 400px;
-      height: 400px;
-      background: #ffebd8;
-      top: -100px;
-      right: -100px;
-    }
-    body::after {
-      width: 450px;
-      height: 450px;
-      background: #fff0e0;
-      bottom: -150px;
-      left: -150px;
-    }
-
-    /* Layout Containers - Enhanced card container */
-    main {
-      width: 100%;
-      max-width: 420px;
-      background: var(--card-bg);
-      padding: 40px 30px;
-      border-radius: var(--radius);
-      box-shadow: var(--shadow);
-      border: 1px solid rgba(255, 87, 34, 0.08);
-      position: relative;
-      animation: form-entry 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-    }
-
-    /* CSS Animation for form entry */
-    @@keyframes form-entry {
-      from { opacity: 0; transform: translateY(12px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-
-    /* Brand Logo styling */
-    .brand-logo-area {
-      text-align: center;
-      margin-bottom: 24px;
-    }
-
-    .brand-logo {
-      max-width: 130px;
-      height: auto;
-      object-fit: contain;
-      margin-bottom: 12px;
-      filter: drop-shadow(0 4px 6px rgba(255, 87, 34, 0.15));
-    }
-
-    /* Typography */
-    h1 {
-      font-size: 1.6rem;
-      font-weight: 800;
-      color: #1a202c;
-      margin-bottom: 6px;
-      text-align: center;
-      letter-spacing: -0.5px;
-    }
-
-    p.subtitle {
-      font-size: 0.9rem;
-      color: var(--text-muted);
-      text-align: center;
-      margin-bottom: 28px;
-    }
-
-    /* Forms & Inputs */
-    form {
-      display: flex;
-      flex-direction: column;
-      gap: 18px;
-    }
-
-    .form-group {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      position: relative;
-    }
-
-    label {
-      font-weight: 700;
-      font-size: 0.85rem;
-      color: #4a5568;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-
-    input[type="text"],
-    input[type="password"] {
-      width: 100%;
-      padding: 12px 14px;
-      border: 1.5px solid var(--border-color);
-      border-radius: 8px;
-      font-size: 0.95rem;
-      font-weight: 500;
-      color: #2d3748;
-      background: #fcfdfd;
-      transition: all 0.2s ease;
-    }
-
-    /* Focus and Hover effects */
-    input[type="text"]:hover,
-    input[type="password"]:hover {
-      border-color: #cbd5e0;
-    }
-
-    input:focus {
-      outline: none;
-      border-color: var(--primary-color);
-      background: #ffffff;
-      box-shadow: 0 0 0 3.5px var(--primary-alpha);
-    }
-
-    /* Password Input wrapper with Eye icon toggle */
-    .password-wrapper {
-      position: relative;
-      display: flex;
-      align-items: center;
-    }
-
-    .password-toggle-btn {
-      position: absolute;
-      right: 12px;
-      background: none;
-      border: none;
-      cursor: pointer;
-      color: var(--text-muted);
-      padding: 4px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .password-toggle-btn:hover {
-      color: var(--text-color);
-    }
-
-    /* Remember me checkbox style */
-    .remember-me-container {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      cursor: pointer;
-      user-select: none;
-      font-size: 0.9rem;
-      font-weight: 600;
-      color: #4a5568;
-      margin-top: 4px;
-    }
-
-    .remember-me-checkbox {
-      width: 18px;
-      height: 18px;
-      accent-color: var(--primary-color);
-      border: 1.5px solid var(--border-color);
-      border-radius: 4px;
-      cursor: pointer;
-    }
-
-    /* Buttons */
-    button[type="submit"], .btn-submit {
-      background-color: var(--primary-color);
-      color: white;
-      border: none;
-      padding: 12px 20px;
-      font-size: 0.95rem;
-      font-weight: 700;
-      border-radius: 8px;
-      cursor: pointer;
-      transition: all 0.15s ease;
-      box-shadow: 0 4px 10px rgba(255, 87, 34, 0.25);
-      margin-top: 8px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-    }
-
-    button[type="submit"]:hover, .btn-submit:hover {
-      background-color: var(--primary-hover);
-      box-shadow: 0 6px 14px rgba(255, 87, 34, 0.35);
-      transform: translateY(-1px);
-    }
-
-    button[type="submit"]:active {
-      transform: translateY(1px);
-      box-shadow: 0 2px 6px rgba(255, 87, 34, 0.2);
-    }
-
-    /* Validation Span Error message (asp-validation-for) */
-    .field-validation-error {
-      font-size: 0.8rem;
-      font-weight: 600;
-      color: #e53e3e;
-      margin-top: 2px;
-      display: none;
-      animation: error-shake 0.3s ease;
-    }
-
-    @@keyframes error-shake {
-      0%, 100% { transform: translateX(0); }
-      20%, 60% { transform: translateX(-4px); }
-      40%, 80% { transform: translateX(4px); }
-    }
-
-    /* Validation Summary Box (asp-validation-summary) */
-    .validation-summary-errors {
-      background-color: #fff5f5;
-      color: #c53030;
-      padding: 12px 14px;
-      border-radius: 8px;
-      border: 1px solid #fed7d7;
-      margin-bottom: 12px;
-      font-size: 0.85rem;
-      font-weight: 600;
-      display: none;
-      list-style-type: none;
-    }
-
-    .validation-summary-errors li {
-      margin-bottom: 4px;
-    }
-    .validation-summary-errors li:last-child {
-      margin-bottom: 0;
-    }
-
-    /* Soft Developer Help Tooltip Box */
-    .dev-note-box {
-      margin-top: 24px;
-      background: #ebf8ff;
-      border: 1px solid #bee3f8;
-      border-radius: 8px;
-      padding: 10px 12px;
-      font-size: 0.75rem;
-      color: #2b6cb0;
-      font-weight: 600;
-    }
-
-    .dev-note-box code {
-      background: rgba(43, 108, 176, 0.08);
-      padding: 1px 4px;
-      border-radius: 3px;
-      color: #1a365d;
-    }
-
-    /* Redirect simulated loader overlay */
-    .loader-overlay {
-      position: absolute;
-      inset: 0;
-      background: rgba(255, 255, 255, 0.95);
-      border-radius: var(--radius);
-      display: none;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      z-index: 10;
-    }
-
-    .spinner {
-      width: 42px;
-      height: 42px;
-      border: 4px solid #fed7d7;
-      border-top-color: var(--primary-color);
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-      margin-bottom: 12px;
-    }
-
-    @@keyframes spin {
-      to { transform: rotate(360deg); }
-    }
-  </style>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>เข้าสู่ระบบ - Somtumzing Back Office</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Kanit:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="~/css/admin.css" asp-append-version="true" />
 </head>
-<body>
-
-  <main>
-    <!-- Redirect/Success State Loader Overlay -->
-    <div class="loader-overlay" id="loaderOverlay">
-      <div class="spinner"></div>
-      <p style="font-weight: 800; color: #1a202c; font-size: 0.95rem;">Signing in to Back Office...</p>
-      <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 2px;">Welcome back, Administrator</p>
-    </div>
-
-    <!-- Header & Logo Section -->
-    <div class="brand-logo-area">
-      <!-- High fidelity fallback SVG representing the Somtamzing brand -->
-      <svg class="brand-logo" viewBox="0 0 100 100" width="80" height="80">
-        <!-- Mortar background shadow -->
-        <ellipse cx="50" cy="72" rx="34" ry="12" fill="rgba(0,0,0,0.06)"/>
-        <!-- Red Clay Mortar body -->
-        <path d="M22 36 C22 28, 78 28, 78 36 L68 76 C66 82, 34 82, 32 76 Z" fill="#e64a19" stroke="#3d2314" stroke-width="2.2"/>
-        <!-- Mortar gold inner glow -->
-        <ellipse cx="50" cy="36" rx="26" ry="6" fill="#ff763b" stroke="#3d2314" stroke-width="1.8"/>
-        <!-- Pestle standing inside -->
-        <path d="M52 14 L68 54 C70 58, 62 62, 58 58 L46 22 Z" fill="#8d6e63" stroke="#3d2314" stroke-width="2"/>
-        <!-- Spicy Pepper floating -->
-        <path d="M12 45 Q5 40 22 25 Q28 20 18 35 Z" fill="#c62828" stroke="#3d2314" stroke-width="1.5"/>
-        <path d="M25 22 Q27 15 22 18" fill="none" stroke="#2e7d32" stroke-width="1.5"/>
-      </svg>
-      <h1>Somtumzing Back Office</h1>
-      <p class="subtitle">Sign in to manage your mobile food empire</p>
-    </div>
-
-    <!-- Razor Pages Form -->
-    <form method="post" id="loginForm" onsubmit="handleFormSubmit(event)">
-      
-      <!-- ASP.NET Core Validation Summary Box -->
-      <div asp-validation-summary="ModelOnly" class="validation-summary-errors" id="validationSummary" role="alert">
-        <!-- Simulating Razor Page errors on empty click -->
-      </div>
-
-      <!-- Hidden ReturnUrl -->
-      <input type="hidden" name="ReturnUrl" value="/" />
-
-      <!-- Email Input Field -->
-      <div class="form-group">
-        <label for="Input_Email">Email Address</label>
-        <input type="text" id="Input_Email" name="Input.Email" placeholder="admin@somtamzing.com" autocomplete="username" />
-        <!-- Validation span -->
-        <span class="field-validation-error" id="emailValidationError">The Email field is required.</span>
-      </div>
-
-      <!-- Password Input Field -->
-      <div class="form-group">
-        <label for="Input_Password">Password</label>
-        <div class="password-wrapper">
-          <input type="password" id="Input_Password" name="Input.Password" autocomplete="current-password" placeholder="••••••••" />
-          <button type="button" class="password-toggle-btn" id="passwordToggle" aria-label="Toggle password visibility">
-            <!-- SVG Eye icon -->
-            <svg id="eyeIcon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-              <circle cx="12" cy="12" r="3"></circle>
+<body class="login-body">
+    <div class="login-card">
+        <div class="login-brand">
+            <svg class="login-brand-logo" viewBox="0 0 100 100" width="72" height="72" aria-hidden="true">
+                <ellipse cx="50" cy="72" rx="34" ry="12" fill="rgba(0,0,0,0.06)"/>
+                <path d="M22 36 C22 28, 78 28, 78 36 L68 76 C66 82, 34 82, 32 76 Z" fill="#e64a19" stroke="#3d2314" stroke-width="2.2"/>
+                <ellipse cx="50" cy="36" rx="26" ry="6" fill="#ff763b" stroke="#3d2314" stroke-width="1.8"/>
+                <path d="M52 14 L68 54 C70 58, 62 62, 58 58 L46 22 Z" fill="#8d6e63" stroke="#3d2314" stroke-width="2"/>
+                <path d="M12 45 Q5 40 22 25 Q28 20 18 35 Z" fill="#c62828" stroke="#3d2314" stroke-width="1.5"/>
             </svg>
-          </button>
+            <h1>Somtumzing Back Office</h1>
+            <p>เข้าสู่ระบบเพื่อจัดการเกมส้มตำซิ่ง</p>
         </div>
-        <!-- Validation span -->
-        <span class="field-validation-error" id="passwordValidationError">The Password field is required.</span>
-      </div>
 
-      <!-- Remember Me Checkbox -->
-      <label class="remember-me-container">
-        <input type="checkbox" name="Input.RememberMe" value="true" class="remember-me-checkbox" />
-        Remember me
-      </label>
+        @if (!ViewData.ModelState.IsValid && ViewData.ModelState.ErrorCount > 0)
+        {
+            <div class="login-error" role="alert">
+                @foreach (var error in ViewData.ModelState.Values.SelectMany(v => v.Errors))
+                {
+                    <div>@error.ErrorMessage</div>
+                }
+            </div>
+        }
 
-      <!-- Submit button -->
-      <button type="submit">
-        <span>Sign in</span>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <line x1="5" y1="12" x2="19" y2="12"></line>
-          <polyline points="12 5 19 12 12 19"></polyline>
-        </svg>
-      </button>
+        <form method="post" class="login-form">
+            <input type="hidden" name="ReturnUrl" value="@Model.ReturnUrl" />
 
-    </form>
+            <div class="form-group">
+                <label for="Input_Email">อีเมล หรือ ชื่อผู้ใช้</label>
+                <input type="text" id="Input_Email" name="Input.Email" placeholder="admin@somtumzing.com"
+                       autocomplete="username" required
+                       value="@Model.Input.Email" />
+            </div>
 
-    <!-- Developer/Programmer notes for integration -->
-    <div class="dev-note-box">
-      <strong>💻 Programmer Note:</strong> This template preserves ASP.NET Core Razor Pages tag helpers (<code>asp-for</code>, <code>asp-validation-for</code>) and refers to the logo via <code>/images/logo.png</code> in the deployment directory.
+            <div class="form-group">
+                <label for="Input_Password">รหัสผ่าน</label>
+                <div class="password-wrapper">
+                    <input type="password" id="Input_Password" name="Input.Password"
+                           autocomplete="current-password" placeholder="••••••••" required />
+                    <button type="button" class="password-toggle-btn" id="passwordToggle" aria-label="แสดง/ซ่อนรหัสผ่าน">
+                        <svg id="eyeIcon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                            <circle cx="12" cy="12" r="3"></circle>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <label class="remember-me-container">
+                <input type="checkbox" name="Input.RememberMe" value="true" class="remember-me-checkbox" />
+                <span>จดจำการเข้าสู่ระบบ</span>
+            </label>
+
+            <button type="submit" class="btn btn-primary btn-block" style="padding: 13px 20px; font-size: 0.95rem;">
+                <span>เข้าสู่ระบบ</span>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                    <polyline points="12 5 19 12 12 19"></polyline>
+                </svg>
+            </button>
+        </form>
     </div>
-  </main>
 
-  <script>
-    // Handle password eye toggle
-    const passwordInput = document.getElementById('Input_Password');
-    const passwordToggle = document.getElementById('passwordToggle');
-    const eyeIcon = document.getElementById('eyeIcon');
+    <script>
+        const passwordInput = document.getElementById('Input_Password');
+        const passwordToggle = document.getElementById('passwordToggle');
+        const eyeIcon = document.getElementById('eyeIcon');
 
-    passwordToggle.addEventListener('click', () => {
-      const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
-      passwordInput.setAttribute('type', type);
-      
-      // Update SVG representing opened/closed eye
-      if (type === 'text') {
-        eyeIcon.innerHTML = `
-          <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
-          <line x1="1" y1="1" x2="23" y2="23"></line>
-        `;
-      } else {
-        eyeIcon.innerHTML = `
-          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-          <circle cx="12" cy="12" r="3"></circle>
-        `;
-      }
-    });
-
-    // Simulating ASP.NET Core MVC Razor validation feedback
-    function handleFormSubmit(event) {
-      event.preventDefault();
-
-      const emailInput = document.getElementById('Input_Email');
-      const passwordInput = document.getElementById('Input_Password');
-      
-      const emailValidation = document.getElementById('emailValidationError');
-      const passwordValidation = document.getElementById('passwordValidationError');
-      const validationSummary = document.getElementById('validationSummary');
-      const loaderOverlay = document.getElementById('loaderOverlay');
-
-      let hasError = false;
-      const errorsList = [];
-
-      // Email field validation check
-      if (!emailInput.value.trim()) {
-        emailInput.style.borderColor = '#e53e3e';
-        emailValidation.style.display = 'block';
-        errorsList.push('The Email Address field is required.');
-        hasError = true;
-      } else {
-        emailInput.style.borderColor = '';
-        emailValidation.style.display = 'none';
-      }
-
-      // Password field validation check
-      if (!passwordInput.value.trim()) {
-        passwordInput.style.borderColor = '#e53e3e';
-        passwordValidation.style.display = 'block';
-        errorsList.push('The Password field is required.');
-        hasError = true;
-      } else {
-        passwordInput.style.borderColor = '';
-        passwordValidation.style.display = 'none';
-      }
-
-      // If errors exist, render MVC summary errors box
-      if (hasError) {
-        validationSummary.innerHTML = errorsList.map(err => `<li>${err}</li>`).join('');
-        validationSummary.style.display = 'block';
-        
-        // Shake form card for playful tactile response
-        const formCard = document.querySelector('main');
-        formCard.style.animation = 'none';
-        setTimeout(() => {
-          formCard.style.animation = 'error-shake 0.35s ease';
-        }, 10);
-      } else {
-        validationSummary.style.display = 'none';
-        validationSummary.innerHTML = '';
-        
-        // Simulate Successful Redirect State
-        loaderOverlay.style.display = 'flex';
-        setTimeout(() => {
-          alert('🔑 Simulated successful sign in!\nProgrammers: Ready to deploy Razor Page on ASP.NET Core server.');
-          loaderOverlay.style.display = 'none';
-        }, 1200);
-      }
-    }
-  </script>
+        passwordToggle.addEventListener('click', () => {
+            const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+            passwordInput.setAttribute('type', type);
+            if (type === 'text') {
+                eyeIcon.innerHTML = '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line>';
+            } else {
+                eyeIcon.innerHTML = '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle>';
+            }
+        });
+    </script>
 </body>
 </html>
