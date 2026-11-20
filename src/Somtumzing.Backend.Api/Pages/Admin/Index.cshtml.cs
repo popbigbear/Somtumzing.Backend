@@ -43,7 +43,8 @@ public sealed class IndexModel(
         Stats.TotalStages = await database.Stages.AsNoTracking().CountAsync(cancellationToken);
         Stats.TotalEvents = await database.GameEvents.AsNoTracking().CountAsync(cancellationToken);
         Stats.TotalMissions = await database.Missions.AsNoTracking().CountAsync(cancellationToken);
-        Stats.TotalAchievements = await database.GameAchievements.AsNoTracking().CountAsync(cancellationToken);
+        Stats.TotalAchievements = await database.Achievements.AsNoTracking().CountAsync(cancellationToken);
+
 
         Stats.TotalGameSessions = await database.GameSessions.AsNoTracking().CountAsync(cancellationToken);
         Stats.SessionsToday = await database.GameSessions.AsNoTracking()
