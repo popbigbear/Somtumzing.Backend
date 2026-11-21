@@ -2,6 +2,7 @@
 @model Somtumzing.Backend.Api.Pages.Admin.MasterDataModel
 @{
     ViewData["Title"] = "ข้อมูลเกม (Master Data)";
+    var hasEntitySelected = !string.IsNullOrWhiteSpace(Model.Entity);
 }
 
 <div class="section-header">
@@ -10,357 +11,272 @@
         <div class="section-subtitle">บริหารด่านเกม รางวัล กิจกรรม ความสำเร็จ และการ์ดซิ่ง</div>
     </div>
     <div style="display: flex; gap: 12px; align-items: center;">
-        <select id="entitySelector" onchange="onEntityChange()" class="form-control" style="min-width: 240px;">
-            <option value="">-- เลือกประเภทข้อมูล --</option>
-        </select>
-        <button onclick="openModal()" id="btnNew" class="btn btn-success" style="display: none;">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            เพิ่มข้อมูลใหม่
-        </button>
+        <form method="get" style="margin: 0;">
+            <select name="Entity" onchange="this.form.submit()" class="form-control" style="min-width: 240px;">
+                <option value="">-- เลือกประเภทข้อมูล --</option>
+                @foreach (var entityName in Model.AvailableEntities)
+                {
+                    <option value="@entityName" selected="@(string.Equals(Model.Entity, entityName, StringComparison.OrdinalIgnoreCase) ? "selected" : null)">@entityName</option>
+                }
+            </select>
+        </form>
+
+        @if (hasEntitySelected)
+        {
+            <a asp-page="./MasterData"
+               asp-route-Entity="@Model.Entity"
+               asp-route-IsCreating="true"
+               class="btn btn-success"
+               style="display: inline-flex; text-decoration: none;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                เพิ่มข้อมูลใหม่
+            </a>
+        }
     </div>
 </div>
 
-<div class="card" id="tableContainer" style="display: none;">
-    <div class="card-body" style="padding: 0;">
-        <div class="table-wrapper" style="border: none;">
-            <table id="dynamicTable">
-                <thead>
-                    <tr id="tableHeader"></tr>
-                </thead>
-                <tbody id="tableBody"></tbody>
-            </table>
-        </div>
-    </div>
-</div>
+@if (hasEntitySelected)
+{
+    <div class="card" id="tableContainer">
+        <div class="card-body" style="padding: 0;">
+            <div class="table-wrapper" style="border: none;">
+                <table id="dynamicTable">
+                    <thead>
+                        <tr>
+                            @foreach (var field in Model.VisibleFields)
+                            {
+                                <th>@field.Name</th>
+                            }
+                            <th style="text-align: center; white-space: nowrap;">จัดการ</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (Model.Rows.Count == 0)
+                        {
+                            var colspan = Model.VisibleFields.Count + 1;
+                            <tr>
+                                <td colspan="@colspan">
+                                    <div class="empty-state">
+                                        <p class="empty-state-text">ยังไม่มีข้อมูลในระบบ</p>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                        else
+                        {
+                            @foreach (var row in Model.Rows)
+                            {
+                                <tr>
+                                    @foreach (var field in Model.VisibleFields)
+                                    {
+                                        var cell = row.Cells.TryGetValue(field.Name, out var c) ? c : null;
+                                        <td>
+                                            @if (cell is not null && cell.IsBoolean)
+                                            {
+                                                if (cell.BoolValue)
+                                                {
+                                                    <span class="badge badge-success">ใช่</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="badge badge-neutral">ไม่</span>
+                                                }
+                                            }
+                                            else
+                                            {
+                                                @(cell?.DisplayText ?? "-")
+                                            }
+                                        </td>
+                                    }
+                                    <td style="text-align: center; white-space: nowrap;">
+                                        <a asp-page="./MasterData"
+                                           asp-route-Entity="@Model.Entity"
+                                           asp-route-EditPk="@row.Pk"
+                                           class="btn btn-secondary btn-sm"
+                                           style="text-decoration: none;">แก้ไข</a>
 
-<div class="card" id="emptyStateContainer">
-    <div class="card-body">
-        <div class="empty-state">
-            <div class="empty-state-icon">
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                                        <form method="post"
+                                              asp-page-handler="Delete"
+                                              style="display: inline; margin: 0;"
+                                              onsubmit="return confirm('คุณแน่ใจหรือไม่ว่าต้องการลบข้อมูลนี้?');">
+                                            <input type="hidden" name="entity" value="@Model.Entity" />
+                                            <input type="hidden" name="pk" value="@row.Pk" />
+                                            <button type="submit" class="btn btn-danger btn-sm" style="margin-left: 8px;">ลบ</button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
             </div>
-            <p class="empty-state-text">เลือกประเภทข้อมูลด้านบนเพื่อเริ่มจัดการ</p>
         </div>
     </div>
-</div>
-
-<!-- Modal -->
-<div class="modal-overlay" id="formModal">
-    <div class="modal">
-        <div class="modal-header">
-            <h3 class="modal-title" id="modalTitle">ฟอร์มข้อมูล</h3>
-            <button type="button" onclick="closeModal()" class="modal-close" aria-label="ปิด">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-            </button>
-        </div>
-        <div class="modal-body">
-            <form id="modalForm" onsubmit="saveData(event)" style="display: flex; flex-direction: column; gap: 16px;">
-                <div id="formFields"></div>
-            </form>
-        </div>
-        <div class="modal-footer">
-            <button type="button" onclick="closeModal()" class="btn btn-secondary">ยกเลิก</button>
-            <button type="submit" form="modalForm" class="btn btn-primary">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-                บันทึก
-            </button>
+}
+else
+{
+    <div class="card" id="emptyStateContainer">
+        <div class="card-body">
+            <div class="empty-state">
+                <div class="empty-state-icon">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                </div>
+                <p class="empty-state-text">เลือกประเภทข้อมูลด้านบนเพื่อเริ่มจัดการ</p>
+            </div>
         </div>
     </div>
-</div>
+}
 
-<div id="toastContainer" style="position: fixed; bottom: 24px; right: 24px; z-index: 300; display: flex; flex-direction: column; gap: 8px;"></div>
+<!-- Modal (ควบคุมสถานะและข้อมูลจาก Code-Behind ทั้งหมด) -->
+@if (Model.IsModalOpen)
+{
+    var cancelUrl = Url.Page("./MasterData", new { Entity = Model.Entity }) ?? "/Admin/MasterData";
+    <div class="modal-overlay show" id="formModal" data-cancel-url="@cancelUrl">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title" id="modalTitle">@Model.ModalTitle</h3>
+                <a href="@cancelUrl" class="modal-close" aria-label="ปิด" style="text-decoration: none;">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </a>
+            </div>
+            <div class="modal-body">
+                <form id="modalForm" method="post" asp-page-handler="Save" style="display: flex; flex-direction: column; gap: 16px;">
+                    <input type="hidden" name="Entity" value="@Model.Entity" />
+
+                    @foreach (var field in Model.Schema)
+                    {
+                        var currentValue = Model.FormValues.TryGetValue(field.Name, out var v) ? v ?? string.Empty : string.Empty;
+                        var isRequiredAttr = field.IsNullable ? null : "required";
+
+                        if (field.IsPrimaryKey)
+                        {
+                            <input type="hidden" id="field_@field.Name" name="Field_@field.Name" value="@currentValue" />
+                            continue;
+                        }
+
+                        if (field.IsSystemField)
+                        {
+                            continue;
+                        }
+
+                        <div class="form-group">
+                            <label class="form-label" for="field_@field.Name">
+                                @(field.Name)@(field.IsNullable ? "" : " *")
+                            </label>
+
+                            @if (field.InputKind == "boolean")
+                            {
+                                var isTrue = string.Equals(currentValue, "true", StringComparison.OrdinalIgnoreCase);
+                                <select id="field_@field.Name" name="Field_@field.Name" class="form-control">
+                                    <option value="true" selected="@(isTrue ? "selected" : null)">ใช่</option>
+                                    <option value="false" selected="@(!isTrue ? "selected" : null)">ไม่</option>
+                                </select>
+                            }
+                            else if (field.InputKind == "integer")
+                            {
+                                <input type="number"
+                                       step="1"
+                                       id="field_@field.Name"
+                                       name="Field_@field.Name"
+                                       value="@currentValue"
+                                       class="form-control"
+                                       required="@isRequiredAttr" />
+                            }
+                            else if (field.InputKind == "decimal")
+                            {
+                                <input type="number"
+                                       step="0.01"
+                                       id="field_@field.Name"
+                                       name="Field_@field.Name"
+                                       value="@currentValue"
+                                       class="form-control"
+                                       required="@isRequiredAttr" />
+                            }
+                            else if (field.InputKind == "datetime")
+                            {
+                                <input type="datetime-local"
+                                       id="field_@field.Name"
+                                       name="Field_@field.Name"
+                                       value="@currentValue"
+                                       class="form-control"
+                                       required="@isRequiredAttr" />
+                            }
+                            else if (field.InputKind == "textarea")
+                            {
+                                <textarea id="field_@field.Name"
+                                          name="Field_@field.Name"
+                                          rows="4"
+                                          class="form-control"
+                                          style="font-family: monospace;"
+                                          required="@isRequiredAttr">@currentValue</textarea>
+                            }
+                            else
+                            {
+                                <input type="text"
+                                       id="field_@field.Name"
+                                       name="Field_@field.Name"
+                                       value="@currentValue"
+                                       class="form-control"
+                                       required="@isRequiredAttr" />
+                            }
+                        </div>
+                    }
+                </form>
+            </div>
+            <div class="modal-footer">
+                <a href="@cancelUrl" class="btn btn-secondary" style="text-decoration: none;">ยกเลิก</a>
+                <button type="submit" form="modalForm" class="btn btn-primary">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                    บันทึก
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Toast แจ้งเตือนผลลัพธ์จาก TempData ฝั่ง Server -->
+@if (!string.IsNullOrWhiteSpace(Model.SuccessMessage) || !string.IsNullOrWhiteSpace(Model.ErrorMessage))
+{
+    <div id="toastContainer" style="position: fixed; bottom: 24px; right: 24px; z-index: 300; display: flex; flex-direction: column; gap: 8px;">
+        @if (!string.IsNullOrWhiteSpace(Model.SuccessMessage))
+        {
+            <div class="alert alert-success server-toast" style="min-width: 280px; box-shadow: var(--shadow-md); animation: slide-up 0.3s ease;">
+                @Model.SuccessMessage
+            </div>
+        }
+        @if (!string.IsNullOrWhiteSpace(Model.ErrorMessage))
+        {
+            <div class="alert alert-danger server-toast" style="min-width: 280px; box-shadow: var(--shadow-md); animation: slide-up 0.3s ease;">
+                @Model.ErrorMessage
+            </div>
+        }
+    </div>
+}
 
 @section Scripts {
 <script>
-    let currentSchema = [];
-    let currentData = [];
-    let selectedEntity = "";
-
-    const token = localStorage.getItem("AccessToken") || "";
-
-    document.addEventListener("DOMContentLoaded", async () => {
-        try {
-            // 2. ปรับแต่งจังหวะดึงประเภทข้อมูล (DOMContentLoaded):
-            const res = await fetch("/api/MasterData/types", {
-                headers: {
-                    "Authorization": `Bearer ${token}` // 👈 ใส่ Headers ยืนยันตัวตนส่งไป
-                }
-            });
-
-            const types = await res.json();
-            const selector = document.getElementById("entitySelector");
-            types.forEach(t => {
-                const opt = document.createElement("option");
-                opt.value = t.name;
-                opt.textContent = t.name;
-                selector.appendChild(opt);
-            });
-        } catch (e) {
-            showToast("ไม่สามารถโหลดประเภทข้อมูลได้", "error");
-        }
-    });
-
-    async function onEntityChange() {
-        selectedEntity = document.getElementById("entitySelector").value;
-        const btnNew = document.getElementById("btnNew");
-        const tableContainer = document.getElementById("tableContainer");
-        const emptyStateContainer = document.getElementById("emptyStateContainer");
-
-        if (!selectedEntity) {
-            btnNew.style.display = "none";
-            tableContainer.style.display = "none";
-            emptyStateContainer.style.display = "block";
-            return;
-        }
-
-        btnNew.style.display = "inline-flex";
-        tableContainer.style.display = "block";
-        emptyStateContainer.style.display = "none";
-
-        try {
-            const [schemaRes, dataRes] = await Promise.all([
-                fetch(`/api/MasterData/schema/${selectedEntity}`, {
-                    headers: { "Authorization": `Bearer ${token}` }
-                }),
-                fetch(`/api/MasterData/data/${selectedEntity}`, {
-                    headers: { "Authorization": `Bearer ${token}` }
-                })
-            ]);
-            currentSchema = await schemaRes.json();
-            currentData = await dataRes.json();
-            renderTable();
-        } catch (e) {
-            showToast("โหลดข้อมูลไม่สำเร็จ", "error");
-        }
-    }
-
-    function renderTable() {
-        const header = document.getElementById("tableHeader");
-        const body = document.getElementById("tableBody");
-        header.innerHTML = "";
-        body.innerHTML = "";
-
-        const visibleFields = currentSchema.filter(s => !s.isSystemField);
-
-        visibleFields.forEach(f => {
-            const th = document.createElement("th");
-            th.textContent = f.name;
-            header.appendChild(th);
+    document.addEventListener("DOMContentLoaded", () => {
+        // ซ่อน Toast อัตโนมัติหลังแสดงผล 3.5 วินาที
+        document.querySelectorAll(".server-toast").forEach(toast => {
+            setTimeout(() => {
+                toast.style.opacity = "0";
+                toast.style.transition = "opacity 0.3s";
+                setTimeout(() => toast.remove(), 300);
+            }, 3500);
         });
 
-        const thActions = document.createElement("th");
-        thActions.textContent = "จัดการ";
-        thActions.style.textAlign = "center";
-        thActions.style.whiteSpace = "nowrap";
-        header.appendChild(thActions);
-
-        if (currentData.length === 0) {
-            const colspan = visibleFields.length + 1;
-            body.innerHTML = `<tr><td colspan="${colspan}"><div class="empty-state"><p class="empty-state-text">ยังไม่มีข้อมูลในระบบ</p></div></td></tr>`;
-            return;
-        }
-
-        currentData.forEach(row => {
-            const tr = document.createElement("tr");
-
-            visibleFields.forEach(f => {
-                const td = document.createElement("td");
-                const val = row[f.name];
-                if (typeof val === 'object' && val !== null) {
-                    td.textContent = JSON.stringify(val);
-                } else if (typeof val === 'boolean') {
-                    if (val) {
-                        td.innerHTML = '<span class="badge badge-success">ใช่</span>';
-                    } else {
-                        td.innerHTML = '<span class="badge badge-neutral">ไม่</span>';
+        // รองรับการกดปุ่ม Escape เพื่อปิด Modal
+        const modal = document.getElementById("formModal");
+        if (modal) {
+            document.addEventListener("keydown", (e) => {
+                if (e.key === "Escape") {
+                    const cancelUrl = modal.getAttribute("data-cancel-url");
+                    if (cancelUrl) {
+                        window.location.href = cancelUrl;
                     }
-                } else {
-                    td.textContent = val !== null && val !== undefined ? val : '-';
                 }
-                tr.appendChild(td);
             });
-
-            const tdActions = document.createElement("td");
-            tdActions.style.textAlign = "center";
-            tdActions.style.whiteSpace = "nowrap";
-            const editBtn = document.createElement("button");
-            editBtn.className = "btn btn-secondary btn-sm";
-            editBtn.textContent = "แก้ไข";
-            editBtn.onclick = () => editRow(row);
-
-            const delBtn = document.createElement("button");
-            delBtn.className = "btn btn-danger btn-sm";
-            delBtn.textContent = "ลบ";
-            delBtn.style.marginLeft = "8px";
-            delBtn.onclick = () => deleteRow(row.pk);
-
-            tdActions.appendChild(editBtn);
-            tdActions.appendChild(delBtn);
-            tr.appendChild(tdActions);
-            body.appendChild(tr);
-        });
-    }
-
-    function renderForm(data = {}) {
-        const container = document.getElementById("formFields");
-        container.innerHTML = "";
-
-        currentSchema.forEach(f => {
-            if (f.isPrimaryKey) {
-                const hidden = document.createElement("input");
-                hidden.type = "hidden";
-                hidden.id = `field_${f.name}`;
-                hidden.value = data[f.name] || '';
-                container.appendChild(hidden);
-                return;
-            }
-            if (f.isSystemField) return;
-
-            const wrapper = document.createElement("div");
-            wrapper.className = "form-group";
-
-            const label = document.createElement("label");
-            label.className = "form-label";
-            label.textContent = f.name + (f.isNullable ? "" : " *");
-            label.htmlFor = `field_${f.name}`;
-
-            const val = data[f.name] !== undefined ? data[f.name] : "";
-            let input;
-
-            if (f.type === "Boolean") {
-                input = document.createElement("select");
-                input.innerHTML = `<option value="true" ${val === true ? 'selected' : ''}>ใช่</option><option value="false" ${val === false ? 'selected' : ''}>ไม่</option>`;
-            } else if (f.type === "Int32" || f.type === "Int64") {
-                input = document.createElement("input");
-                input.type = "number";
-                input.step = "1";
-                input.value = val;
-            } else if (f.type === "Decimal") {
-                input = document.createElement("input");
-                input.type = "number";
-                input.step = "0.01";
-                input.value = val;
-            } else if (f.name.includes("Date") || f.name.includes("AtUtc")) {
-                input = document.createElement("input");
-                input.type = "datetime-local";
-                if (val) input.value = new Date(val).toISOString().slice(0, 16);
-            } else if (f.name.includes("Config") || f.name.includes("Json") || f.name.includes("Effects")) {
-                input = document.createElement("textarea");
-                input.rows = 4;
-                input.style.fontFamily = "monospace";
-                input.value = typeof val === 'object' ? JSON.stringify(val, null, 2) : (val || "");
-            } else {
-                input = document.createElement("input");
-                input.type = "text";
-                input.value = val;
-            }
-
-            input.id = `field_${f.name}`;
-            input.className = "form-control";
-
-            wrapper.appendChild(label);
-            wrapper.appendChild(input);
-            container.appendChild(wrapper);
-        });
-    }
-
-    function openModal() {
-        document.getElementById("modalTitle").textContent = `เพิ่มข้อมูล: ${selectedEntity}`;
-        renderForm();
-        document.getElementById("formModal").classList.add("show");
-    }
-
-    function editRow(row) {
-        document.getElementById("modalTitle").textContent = `แก้ไข: ${selectedEntity}`;
-        renderForm(row);
-        document.getElementById("formModal").classList.add("show");
-    }
-
-    function closeModal() {
-        document.getElementById("formModal").classList.remove("show");
-    }
-
-    document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') closeModal();
+        }
     });
-
-    async function saveData(event) {
-        event.preventDefault();
-        const payload = {};
-        currentSchema.forEach(f => {
-            const input = document.getElementById(`field_${f.name}`);
-            if (!input) return;
-
-            if (f.type === "Boolean") {
-                payload[f.name] = input.value === "true";
-            } else if (f.type === "Int32" || f.type === "Int64") {
-                payload[f.name] = input.value ? parseInt(input.value) : 0;
-            } else if (f.type === "Decimal") {
-                payload[f.name] = input.value ? parseFloat(input.value) : 0.0;
-            } else {
-                payload[f.name] = input.value || null;
-            }
-        });
-
-        try {
-
-            const res = await fetch(`/api/MasterData/save/${selectedEntity}`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${token}` // 👈 ใส่ตรงนี้ด้วย
-                },
-                body: JSON.stringify(payload)
-            });
-
-            if (res.ok) {
-                closeModal();
-                showToast("บันทึกข้อมูลเรียบร้อย", "success");
-                onEntityChange();
-            } else {
-                const err = await res.text();
-                showToast("ไม่สามารถบันทึกได้: " + err, "error");
-            }
-        } catch (e) {
-            showToast("เกิดข้อผิดพลาดในการบันทึก", "error");
-        }
-    }
-
-    async function deleteRow(pk) {
-        if (!confirm("คุณแน่ใจหรือไม่ว่าต้องการลบข้อมูลนี้?")) return;
-
-        try {
-            const res = await fetch(`/api/MasterData/delete/${selectedEntity}/${pk}`, {
-                method: "DELETE",
-                headers: { "Authorization": `Bearer ${token}` } // 👈 ใส่ตรงนี้ด้วย
-            });
-
-if (res.ok) {
-                showToast("ลบข้อมูลเรียบร้อย", "success");
-                onEntityChange();
-            } else {
-                showToast("ลบข้อมูลไม่สำเร็จ", "error");
-            }
-        } catch (e) {
-            showToast("เกิดข้อผิดพลาดในการลบ", "error");
-        }
-    }
-
-    function showToast(message, type) {
-        const container = document.getElementById("toastContainer");
-        const toast = document.createElement("div");
-        const bgClass = type === "success" ? "alert-success" : type === "error" ? "alert-danger" : "alert-info";
-        toast.className = `alert ${bgClass}`;
-        toast.style.minWidth = "280px";
-        toast.style.boxShadow = "var(--shadow-md)";
-        toast.style.animation = "slide-up 0.3s ease";
-        toast.textContent = message;
-        container.appendChild(toast);
-        setTimeout(() => {
-            toast.style.opacity = "0";
-            toast.style.transition = "opacity 0.3s";
-            setTimeout(() => toast.remove(), 300);
-        }, 3000);
-    }
 </script>
 }
