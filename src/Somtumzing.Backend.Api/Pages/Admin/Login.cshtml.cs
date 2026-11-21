@@ -54,6 +54,10 @@ public sealed class LoginModel(
             return Page();
         }
 
+         // [แก้ไข] ทำการ Sign-out ก่อนเพื่อเคลียร์ Session เก่า และตั้งค่าการจดจำตัวตนผ่าน Persistent Cookie ตาม Input.RememberMe
+        await signInManager.SignOutAsync();
+
+
         // ใช้ UserName ในการ Sign-In ผ่าน SignInManager แทน Email เพื่อความแม่นยำของ Identity
         var result = await signInManager.PasswordSignInAsync(
             administrator.UserName ?? Input.Email,

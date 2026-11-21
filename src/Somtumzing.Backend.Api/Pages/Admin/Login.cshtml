@@ -353,6 +353,7 @@ input[type="email"]:hover { /* 👈 เพิ่มตรงนี้สำห�
                 <path d="M12 45 Q5 40 22 25 Q28 20 18 35 Z" fill="#c62828" stroke="#3d2314" stroke-width="1.5"/>
                 <path d="M25 22 Q27 15 22 18" fill="none" stroke="#2e7d32" stroke-width="1.5"/>
             </svg>
+            <img src="~/images/logo.png" alt="Somtumzing Logo" class="brand-logo" />
             <h1>Somtumzing Back Office</h1>
             <p class="subtitle">Sign in to manage your mobile food empire</p>
         </div>
@@ -407,6 +408,17 @@ input[type="email"]:hover { /* 👈 เพิ่มตรงนี้สำห�
         const passwordInput = document.getElementById('Input_Password');
         const passwordToggle = document.getElementById('passwordToggle');
         const eyeIcon = document.getElementById('eyeIcon');
+        const emailInput = document.getElementById('Input_Email');
+        const rememberMeCheckbox = document.querySelector('.remember-me-checkbox');
+
+         // [เพิ่ม] โหลดค่า Email ที่จดจำไว้เมื่อโหลดหน้าเว็บ
+        document.addEventListener('DOMContentLoaded', () => {
+            const rememberedEmail = localStorage.getItem('somtumzing_admin_remembered_email');
+            if (rememberedEmail) {
+                emailInput.value = rememberedEmail;
+                rememberMeCheckbox.checked = true;
+            }
+        });
 
         // สคริปต์สลับการแสดงผลรหัสผ่าน
         passwordToggle.addEventListener('click', () => {
@@ -467,6 +479,12 @@ input[type="email"]:hover { /* 👈 เพิ่มตรงนี้สำห�
                     mainCard.style.animation = 'error-shake 0.35s ease';
                 }, 10);
             } else {
+                if (rememberMeCheckbox.checked) {
+                    localStorage.setItem('somtumzing_admin_remembered_email', emailField.value.trim());
+                } else {
+                    localStorage.removeItem('somtumzing_admin_remembered_email');
+                }
+
                 // [ยืนยันการผูกหลังบ้าน] หากไม่มีข้อผิดพลาด แสดงโอเวอร์เลย์วงกลมหมุนสวยงาม และปล่อยให้เบราว์เซอร์ทำการส่งค่า (POST Submit) ไปยัง C# Code-behind จริงๆ โดยไม่หยุดการส่งค่า!
                 loaderOverlay.style.display = 'flex';
             }
