@@ -36,7 +36,25 @@
             margin: 0;
             padding: 0;
         }
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
 
+        body {
+            font-family: var(--font-family);
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.6;
+            min-height: 100dvh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            position: relative;
+            overflow-x: hidden;
+        }
         body {
             font-family: var(--font-family);
             background-color: var(--bg-color);
@@ -98,7 +116,18 @@
             text-align: center;
             margin-bottom: 24px;
         }
+        .brand-logo-area {
+            text-align: center;
+            margin-bottom: 24px;
+        }
 
+        .brand-logo {
+            max-width: 130px;
+            height: auto;
+            object-fit: contain;
+            margin-bottom: 12px;
+            filter: drop-shadow(0 4px 6px rgba(255, 87, 34, 0.15));
+        }
         .brand-logo {
             max-width: 130px;
             height: auto;
@@ -115,7 +144,21 @@
             text-align: center;
             letter-spacing: -0.5px;
         }
+        h1 {
+            font-size: 1.6rem;
+            font-weight: 800;
+            color: #1a202c;
+            margin-bottom: 6px;
+            text-align: center;
+            letter-spacing: -0.5px;
+        }
 
+        p.subtitle {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            text-align: center;
+            margin-bottom: 28px;
+        }
         p.subtitle {
             font-size: 0.9rem;
             color: var(--text-muted);
@@ -128,7 +171,18 @@
             flex-direction: column;
             gap: 18px;
         }
+        form {
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+        }
 
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            position: relative;
+        }
         .form-group {
             display: flex;
             flex-direction: column;
@@ -174,6 +228,18 @@
             background: #fcfdfd;
             transition: all 0.2s ease;
         }
+        input[type="text"],
+        input[type="password"] {
+            width: 100%;
+            padding: 12px 14px;
+            border: 1.5px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 0.95rem;
+            font-weight: 500;
+            color: #2d3748;
+            background: #fcfdfd;
+            transition: all 0.2s ease;
+        }
 
         input[type="text"]:hover,
         input[type="password"]:hover {
@@ -202,7 +268,18 @@ input[type="email"]:hover { /* 👈 เพิ่มตรงนี้สำห�
             background: #ffffff;
             box-shadow: 0 0 0 3.5px var(--primary-alpha);
         }
+        input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            background: #ffffff;
+            box-shadow: 0 0 0 3.5px var(--primary-alpha);
+        }
 
+        .password-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
         .password-wrapper {
             position: relative;
             display: flex;
@@ -221,7 +298,22 @@ input[type="email"]:hover { /* 👈 เพิ่มตรงนี้สำห�
             align-items: center;
             justify-content: center;
         }
+        .password-toggle-btn {
+            position: absolute;
+            right: 12px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: var(--text-muted);
+            padding: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
 
+        .password-toggle-btn:hover {
+            color: var(--text-color);
+        }
         .password-toggle-btn:hover {
             color: var(--text-color);
         }
@@ -237,7 +329,26 @@ input[type="email"]:hover { /* 👈 เพิ่มตรงนี้สำห�
             color: #4a5568;
             margin-top: 4px;
         }
+        .remember-me-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            user-select: none;
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #4a5568;
+            margin-top: 4px;
+        }
 
+        .remember-me-checkbox {
+            width: 18px;
+            height: 18px;
+            accent-color: var(--primary-color);
+            border: 1.5px solid var(--border-color);
+            border-radius: 4px;
+            cursor: pointer;
+        }
         .remember-me-checkbox {
             width: 18px;
             height: 18px;
@@ -265,7 +376,30 @@ input[type="email"]:hover { /* 👈 เพิ่มตรงนี้สำห�
             gap: 8px;
             width: 100%;
         }
+        button[type="submit"] {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            font-size: 0.95rem;
+            font-weight: 700;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            box-shadow: 0 4px 10px rgba(255, 87, 34, 0.25);
+            margin-top: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+        }
 
+        button[type="submit"]:hover {
+            background-color: var(--primary-hover);
+            box-shadow: 0 6px 14px rgba(255, 87, 34, 0.35);
+            transform: translateY(-1px);
+        }
         button[type="submit"]:hover {
             background-color: var(--primary-hover);
             box-shadow: 0 6px 14px rgba(255, 87, 34, 0.35);
@@ -276,7 +410,29 @@ input[type="email"]:hover { /* 👈 เพิ่มตรงนี้สำห�
             transform: translateY(1px);
             box-shadow: 0 2px 6px rgba(255, 87, 34, 0.2);
         }
+        button[type="submit"]:active {
+            transform: translateY(1px);
+            box-shadow: 0 2px 6px rgba(255, 87, 34, 0.2);
+        }
 
+        .text-danger {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: #e53e3e;
+            margin-top: 2px;
+        }
+
+        div.validation-summary-errors, [role="alert"] {
+            background-color: #fff5f5;
+            color: #c53030;
+            padding: 12px 14px;
+            border-radius: 8px;
+            border: 1px solid #fed7d7;
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            list-style-type: none;
+        }
         .text-danger {
             font-size: 0.8rem;
             font-weight: 600;
@@ -365,6 +521,7 @@ input[type="email"]:hover { /* 👈 เพิ่มตรงนี้สำห�
             <div asp-validation-summary="ModelOnly" role="alert"></div>
 
             <input type="hidden" asp-for="ReturnUrl" />
+            <input type="hidden" asp-for="ReturnUrl" />
 
             <!-- ส่วนกรอก Email และผูกข้อมูลเข้ากับ Input.Email ของ C# Model -->
             <div class="form-group">
@@ -394,6 +551,15 @@ input[type="email"]:hover { /* 👈 เพิ่มตรงนี้สำห�
                 Remember me
             </label>
 
+            <button type="submit">
+                <span>Sign in</span>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                    <polyline points="12 5 19 12 12 19"></polyline>
+                </svg>
+            </button>
+        </form>
+    </main>
             <button type="submit">
                 <span>Sign in</span>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
