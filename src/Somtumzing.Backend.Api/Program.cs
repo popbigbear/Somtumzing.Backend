@@ -151,8 +151,13 @@ builder.Services.AddRazorPages(options =>
 });
 builder.Services.AddCors(options =>
 {
+    var allowLocalhost = builder.Configuration.GetValue<bool>("Cors:AllowLocalhost");
     options.AddPolicy("MobileClient", policy => policy
-        .WithOrigins("https://somtam-zing-mobile.vercel.app")
+        .SetIsOriginAllowed(origin =>
+            origin == "https://somtam-zing-mobile.vercel.app"
+            || (allowLocalhost
+                && Uri.TryCreate(origin, UriKind.Absolute, out var uri)
+                && uri.Host is "localhost" or "127.0.0.1"))
         .WithMethods("GET", "POST", "PATCH", "OPTIONS")
         .WithHeaders("Content-Type", "Authorization", "Idempotency-Key"));
 });
