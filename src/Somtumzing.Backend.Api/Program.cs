@@ -149,6 +149,18 @@ builder.Services.AddRazorPages(options =>
     options.Conventions.AuthorizeFolder("/Admin", "BackOffice");
     options.Conventions.AllowAnonymousToPage("/Admin/Login");
 });
+builder.Services.AddCors(options =>
+{
+    var allowLocalhost = builder.Configuration.GetValue<bool>("Cors:AllowLocalhost");
+    options.AddPolicy("MobileClient", policy => policy
+        .SetIsOriginAllowed(origin =>
+            origin == "https://somtam-zing-mobile.vercel.app"
+            || (allowLocalhost
+                && Uri.TryCreate(origin, UriKind.Absolute, out var uri)
+                && uri.Host is "localhost" or "127.0.0.1"))
+        .WithMethods("GET", "POST", "PATCH", "OPTIONS")
+        .WithHeaders("Content-Type", "Authorization", "Idempotency-Key"));
+});
 builder.Services.AddControllers();
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<ApiExceptionHandler>();
@@ -207,6 +219,7 @@ app.UseMiddleware<RequestLoggingMiddleware>();
 // เพิ่มบรรทัดนี้เพื่อให้เซิร์ฟเวอร์สามารถอ่านไฟล์ใน wwwroot ได้
 app.UseStaticFiles();
 app.UseRouting();
+app.UseCors("MobileClient");
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
