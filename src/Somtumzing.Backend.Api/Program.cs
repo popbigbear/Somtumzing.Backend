@@ -152,14 +152,14 @@ builder.Services.AddRazorPages(options =>
 builder.Services.AddCors(options =>
 {
     var allowLocalhost = builder.Configuration.GetValue<bool>("Cors:AllowLocalhost");
-    options.AddPolicy("MobileClient", policy => policy
-        .SetIsOriginAllowed(origin =>
-            origin == "https://somtam-zing-mobile.vercel.app"
-            || (allowLocalhost
-                && Uri.TryCreate(origin, UriKind.Absolute, out var uri)
-                && uri.Host is "localhost" or "127.0.0.1"))
-        .WithMethods("GET", "POST", "PATCH", "OPTIONS")
-        .WithHeaders("Content-Type", "Authorization", "Idempotency-Key"));
+   options.AddPolicy("MobileClient", policy => policy
+    .SetIsOriginAllowed(origin =>
+        origin == "https://somtam-zing-mobile.vercel.app"
+        || Uri.TryCreate(origin, UriKind.Absolute, out var uri)
+        && (uri.Host is "localhost" or "127.0.0.1" || uri.Host.EndsWith(".vercel.app")))
+    .WithMethods("GET", "POST", "PATCH", "OPTIONS")
+    .WithHeaders("Content-Type", "Authorization", "Idempotency-Key")
+    .AllowCredentials());  // Add this if using cookies/auth headers
 });
 builder.Services.AddControllers();
 builder.Services.AddProblemDetails();
