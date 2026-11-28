@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -69,6 +70,63 @@ public sealed class GameConfigController(
             .OrderByDescending(c => c.CreatedDate)
             .FirstOrDefaultAsync(cancellationToken);
 
+        // Parse tables JSON
+        var tables = new List<TableConfig>();
+        if (dbConfig != null && !string.IsNullOrWhiteSpace(dbConfig.TablesJson) && dbConfig.TablesJson != "[]")
+        {
+            try
+            {
+                tables = JsonSerializer.Deserialize<List<TableConfig>>(dbConfig.TablesJson, new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                }) ?? new List<TableConfig>();
+            }
+            catch
+            {
+                tables = new List<TableConfig>();
+            }
+        }
+
+        // Default tables if none configured
+        if (tables.Count == 0)
+        {
+            tables = new List<TableConfig>
+            {
+                new(1, "โต๊ะ 1", "ป้าแดง", "urgent", 1),
+                new(2, "โต๊ะ 2", "พี่วินหน้าซอย", "waiting", 2),
+                new(3, "โต๊ะ 3", "น้องออฟฟิศ", "waiting", 1),
+                new(4, "โต๊ะ 4", "เจ๊ขายหวย", "waiting", 3)
+            };
+        }
+
+        // Parse dice rounds JSON
+        var diceRounds = new List<DiceRoundConfig>();
+        if (dbConfig != null && !string.IsNullOrWhiteSpace(dbConfig.DiceRoundsJson) && dbConfig.DiceRoundsJson != "[]")
+        {
+            try
+            {
+                diceRounds = JsonSerializer.Deserialize<List<DiceRoundConfig>>(dbConfig.DiceRoundsJson, new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                }) ?? new List<DiceRoundConfig>();
+            }
+            catch
+            {
+                diceRounds = new List<DiceRoundConfig>();
+            }
+        }
+
+        // Default dice rounds if none configured
+        if (diceRounds.Count == 0)
+        {
+            diceRounds = new List<DiceRoundConfig>
+            {
+                new("เช้า", null, new int[0], null, null),
+                new("กลางวัน", null, new int[0], null, null),
+                new("เย็น", null, new int[0], null, null)
+            };
+        }
+
         // ถ้ายังไม่มี config ให้ใช้ค่าเริ่มต้น
         var config = new GameConfigResponse(
             Version: dbConfig?.Version ?? "1.0.0",
@@ -103,7 +161,9 @@ public sealed class GameConfigController(
             UrgentThreshold: dbConfig?.UrgentThreshold ?? 4,
             WarningTimeSec: dbConfig?.WarningTimeSec ?? 10,
             UrgentSlotBase: dbConfig?.UrgentSlotBase ?? 1,
-            UrgentSlotIntervalSec: dbConfig?.UrgentSlotIntervalSec ?? 10);
+            UrgentSlotIntervalSec: dbConfig?.UrgentSlotIntervalSec ?? 10,
+            Tables: tables,
+            DiceRounds: diceRounds);
 
          logger.LogInformation(
             ConfigLoadedEvent,
@@ -112,6 +172,26 @@ public sealed class GameConfigController(
 
         return Ok(config);
     }
+
+    /// <summary>
+    /// Initial table configuration for run screen
+    /// </summary>
+    public sealed record TableConfig(
+        int Id,
+        string Label,
+        string Customer,
+        string Status, // waiting, served, urgent
+        int Orders);
+
+    /// <summary>
+    /// Dice round configuration for run screen
+    /// </summary>
+    public sealed record DiceRoundConfig(
+        string Label,
+        string? Choice, // "high" | "low" | null
+        int[] Dice,
+        int? Total,
+        int? Delta);
 
     /// <summary>
     /// ข้อมูล Game Configuration ส่งกลับให้ Client
@@ -149,5 +229,7 @@ public sealed class GameConfigController(
         int UrgentThreshold,
         int WarningTimeSec,
         int UrgentSlotBase,
-        int UrgentSlotIntervalSec);
+        int UrgentSlotIntervalSec,
+        List<TableConfig> Tables,
+        List<DiceRoundConfig> DiceRounds);
 }

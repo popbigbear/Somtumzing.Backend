@@ -803,6 +803,8 @@ public sealed class GameDbContext(DbContextOptions<GameDbContext> options)
             entity.Property(row => row.WarningTimeSec).HasDefaultValue(10);
             entity.Property(row => row.UrgentSlotBase).HasDefaultValue(1);
             entity.Property(row => row.UrgentSlotIntervalSec).HasDefaultValue(10);
+            entity.Property(row => row.TablesJson).HasDefaultValue("[]");
+            entity.Property(row => row.DiceRoundsJson).HasDefaultValue("[]");
         });
     }
 

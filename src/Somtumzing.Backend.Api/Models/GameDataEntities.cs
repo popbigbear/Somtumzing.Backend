@@ -67,6 +67,12 @@ public sealed class GameConfig : IGameDataEntity
     public int WarningTimeSec { get; set; } = 10;
     public int UrgentSlotBase { get; set; } = 1;
     public int UrgentSlotIntervalSec { get; set; } = 10;
+
+    // Initial tables config (JSON array)
+    public string TablesJson { get; set; } = "[]";
+
+    // Dice rounds config (JSON array)
+    public string DiceRoundsJson { get; set; } = "[]";
 }
 
 public sealed class CustomerTable : IGameDataEntity
