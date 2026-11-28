@@ -11,6 +11,105 @@ public interface IGameDataEntity
     string Status { get; set; }
 }
 
+public sealed class GameConfig : IGameDataEntity
+{
+    public Guid PK { get; set; }
+    public string Code { get; set; } = string.Empty;
+    public DateTimeOffset CreatedDate { get; set; }
+    public Guid? CreatedBy { get; set; }
+    public DateTimeOffset UpdatedDate { get; set; }
+    public Guid? UpdatedBy { get; set; }
+    public string Status { get; set; } = string.Empty;
+    
+    public string Version { get; set; } = "1.0.0";
+    public int MaxEnergy { get; set; } = 100;
+    public int EnergyRegenSeconds { get; set; } = 300;
+    public bool DailyRewardEnabled { get; set; } = true;
+    public bool MaintenanceMode { get; set; } = false;
+    public string[] SupportedPlatforms { get; set; } = ["web", "ios", "android"];
+    
+    // New game-specific fields
+    public string[] Customers { get; set; } = Array.Empty<string>();
+    public int RunSeconds { get; set; } = 180;
+    public int MaxPerIngredient { get; set; } = 10;
+    public int MaxWarnings { get; set; } = 3;
+    public int PaotungScansRequired { get; set; } = 3;
+    public int TessakitFine { get; set; } = 50;
+    public int PaotungChance { get; set; } = 20;
+    public int PaotungBonus { get; set; } = 100;
+    public int PaotungFailChance { get; set; } = 10;
+    public int TessakitChancePerSec { get; set; } = 5;
+    public int TessakitWarningSec { get; set; } = 10;
+
+    // Run-screen config
+    public int TableCount { get; set; } = 4;
+    public int DeliveryOrders { get; set; } = 2;
+    public int MaxPowerCards { get; set; } = 2;
+
+    // Dice outcomes config
+    public int DiceWinCoins { get; set; } = 25;
+    public int DiceLossCoins { get; set; } = -10;
+    public bool DiceWinPowerCard { get; set; } = true;
+
+    // Speed card config
+    public int SpeedCardDurationSec { get; set; } = 12;
+    public int SpeedCardBonusCoins { get; set; } = 10;
+
+    // Delivery tip config
+    public int DeliveryTipCoins { get; set; } = 15;
+
+    // Immunity/Flee config
+    public int FleeImmunitySec { get; set; } = 6;
+
+    // Thresholds config
+    public int QueueCapacity { get; set; } = 5;
+    public int UrgentThreshold { get; set; } = 4;
+    public int WarningTimeSec { get; set; } = 10;
+    public int UrgentSlotBase { get; set; } = 1;
+    public int UrgentSlotIntervalSec { get; set; } = 10;
+}
+
+public sealed class CustomerTable : IGameDataEntity
+{
+    public Guid PK { get; set; }
+    public string Code { get; set; } = string.Empty;
+    public DateTimeOffset CreatedDate { get; set; }
+    public Guid? CreatedBy { get; set; }
+    public DateTimeOffset UpdatedDate { get; set; }
+    public Guid? UpdatedBy { get; set; }
+    public string Status { get; set; } = string.Empty;
+    
+    public int TableNumber { get; set; }
+    public int Capacity { get; set; } = 4;
+    public string InitialStatus { get; set; } = "EMPTY"; // EMPTY, OCCUPIED, RESERVED, DIRTY
+    public string? AssignedCustomerType { get; set; } // e.g., "REGULAR", "VIP", "PAOTUNG", "TESSAKIT"
+    public int? AssignedCustomerId { get; set; }
+    public int PositionX { get; set; } = 0;
+    public int PositionY { get; set; } = 0;
+    public string? Zone { get; set; } // e.g., "INDOOR", "OUTDOOR", "VIP"
+    public bool IsActive { get; set; } = true;
+    public string? Notes { get; set; }
+}
+
+public sealed class GameConstant : IGameDataEntity
+{
+    public Guid PK { get; set; }
+    public string Code { get; set; } = string.Empty;
+    public DateTimeOffset CreatedDate { get; set; }
+    public Guid? CreatedBy { get; set; }
+    public DateTimeOffset UpdatedDate { get; set; }
+    public Guid? UpdatedBy { get; set; }
+    public string Status { get; set; } = string.Empty;
+    
+    public string ConstantKey { get; set; } = string.Empty;
+    public string Category { get; set; } = string.Empty; // DICE, SPEED_CARD, DELIVERY_TIP, IMMUNITY
+    public string DisplayName { get; set; } = string.Empty;
+    public string? Description { get; set; }
+    public string ValueJson { get; set; } = "{}"; // JSON value for flexible data
+    public int SortOrder { get; set; } = 0;
+    public bool IsActive { get; set; } = true;
+}
+
 public sealed class EventLeaderboard : IGameDataEntity
 {
     public Guid PK { get; set; }
@@ -41,6 +140,7 @@ public sealed class GameEvent : IGameDataEntity
     public DateTimeOffset StartsAtUtc { get; set; }
     public DateTimeOffset EndsAtUtc { get; set; }
     public string RewardConfig { get; set; } = "{}";
+    public string? ImageUrl { get; set; }
 }
 
 public sealed class PlayerGameEvent : IGameDataEntity
@@ -77,6 +177,7 @@ public sealed class GameAchievement : IGameDataEntity
     public int TargetValue { get; set; }
     public int RewardCoins { get; set; }
     public int RewardDiamonds { get; set; }
+    public string? ImageUrl { get; set; }
 }
 
 public sealed class PlayerCosmetic : IGameDataEntity
@@ -94,6 +195,7 @@ public sealed class PlayerCosmetic : IGameDataEntity
     
     // เพิ่ม Property นี้เพื่อให้คอมไพเลอร์รู้จักใน DbContext และ Controller
     public bool IsEquipped { get; set; }
+    public string? ImageUrl { get; set; }
 }
 
 public sealed class PlayerGameAchievement : IGameDataEntity
@@ -339,6 +441,7 @@ public sealed class Upgrade : IGameDataEntity
     
     // เพิ่ม Property นี้เพื่อให้ตรงกับคอลัมน์ description ในตาราง Upgrades
     public string? Description { get; set; } 
+    public string? ImageUrl { get; set; }
 }
 
 // เพิ่มคลาส PlayerUpgrade กลับเข้าไปให้ตรงกับ DDL จริงของตาราง PlayerUpgrades
@@ -613,6 +716,7 @@ public sealed class Mission : IGameDataEntity
     public string Title { get; set; } = string.Empty;
     public string? Description { get; set; }
     public int RewardCoins { get; set; }
+    public string? ImageUrl { get; set; }
 }
 
 public sealed class MatchSabotageEvent : IGameDataEntity

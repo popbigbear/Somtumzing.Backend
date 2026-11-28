@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -51,22 +52,43 @@ public sealed class ShopController(
 
             // มืออาชีพ: ใช้ Left Join ระหว่าง Upgrades (Master) และ PlayerUpgrades (ผู้เล่น)
             // เพื่อให้ผู้เล่นเห็นรายการอัปเกรดทั้งหมดในเกม แม้จะยังไม่เคยซื้อเลยก็ตาม (Level = 0)
-            var query = from u in database.Upgrades.AsNoTracking()
-                        join pu in database.PlayerUpgrades.AsNoTracking()
-                            on new { UpgradePK = u.PK, PlayerPK = userId } equals new { pu.UpgradePK, pu.PlayerPK } into playerUpgrades
-                        from pu in playerUpgrades.DefaultIfEmpty() // Left Join
-                        where u.Status == "PUBLISHED"
-                        select new UpgradeItem(
-                            Id: u.UpgradeKey,
-                            Name: u.DisplayName,
-                            Description: u.Description ?? "อัปเกรดเพิ่มความสามารถร้านค้า",
-                            Cost: (int)u.Price * (pu != null ? pu.Level + 1 : 1),
-                            Level: pu != null ? pu.Level : 0,
-                            MaxLevel: u.MaxLevel,
-                            IsUnlocked: pu != null && pu.Level > 0
-                        );
+            var baseQuery = from u in database.Upgrades.AsNoTracking()
+                            join pu in database.PlayerUpgrades.AsNoTracking()
+                                on new { UpgradePK = u.PK, PlayerPK = userId } equals new { pu.UpgradePK, pu.PlayerPK } into playerUpgrades
+                            from pu in playerUpgrades.DefaultIfEmpty() // Left Join
+                            where u.Status == "PUBLISHED"
+                            select new
+                            {
+                                u.UpgradeKey,
+                                u.DisplayName,
+                                u.Description,
+                                u.Price,
+                                u.MaxLevel,
+                                u.ImageUrl,
+                                PlayerLevel = pu != null ? pu.Level : 0,
+                                IsUnlocked = pu != null && pu.Level > 0
+                            };
 
-            var upgrades = await query.ToListAsync(cancellationToken);
+            var rawUpgrades = await baseQuery.ToListAsync(cancellationToken);
+
+            // Calculate costs array in memory (client-side evaluation)
+            var upgrades = rawUpgrades.Select(u =>
+            {
+                var basePrice = (int)u.Price;
+                var currentLevel = u.PlayerLevel;
+                var costs = Enumerable.Range(1, u.MaxLevel).Select(l => basePrice * l).ToArray();
+                return new UpgradeItem(
+                    Id: u.UpgradeKey,
+                    Name: u.DisplayName,
+                    Description: u.Description ?? "อัปเกรดเพิ่มความสามารถร้านค้า",
+                    Cost: basePrice * (currentLevel + 1),
+                    Costs: costs,
+                    Level: currentLevel,
+                    MaxLevel: u.MaxLevel,
+                    IsUnlocked: u.IsUnlocked,
+                    ImageUrl: u.ImageUrl ?? "/assets/images/upgrades/default.png"
+                );
+            }).ToList();
 
             logger.LogInformation(UpgradesFetchedEvent, "Shop upgrades fetched successfully from database for player {PlayerId}", userId);
 
@@ -110,7 +132,9 @@ public sealed class ShopController(
         string Name,
         string Description,
         int Cost,
+        int[] Costs,
         int Level,
         int MaxLevel,
-        bool IsUnlocked);
+        bool IsUnlocked,
+        string ImageUrl);
 }

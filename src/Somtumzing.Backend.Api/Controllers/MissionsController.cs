@@ -70,7 +70,8 @@ public sealed class MissionsController(
                 Progress: m.Progress,
                 Target: m.TargetValue,
                 RewardCoins: 75,
-                Claimed: m.IsClaimed
+                Claimed: m.IsClaimed,
+                ImageUrl: "/assets/images/missions/default.png"
             )).ToList();
 
             logger.LogInformation(MissionsEvent, "Missions fetched successfully for player {PlayerId}", userId);
@@ -173,7 +174,8 @@ public sealed class MissionsController(
                 Upgrades: new Dictionary<string, int>(),
                 CreatedAt: user.CreatedAtUtc.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"),
                 JoinedDays: Math.Max(1, (int)(DateTimeOffset.UtcNow - user.CreatedAtUtc).TotalDays),
-                RunsPlayed: 0);
+                RunsPlayed: 0,
+                AvatarUrl: "/assets/images/avatars/default.png");
 
             return Ok(new ClaimMissionResponse(
                 Player: updatedPlayer,
@@ -224,7 +226,8 @@ public sealed class MissionsController(
         int Progress,
         int Target,
         int RewardCoins,
-        bool Claimed);
+        bool Claimed,
+        string ImageUrl);
 
     public sealed record ApiErrorResponse(
         string Code,
@@ -243,5 +246,6 @@ public sealed class MissionsController(
         Dictionary<string, int> Upgrades,
         string CreatedAt,
         int JoinedDays,
-        int RunsPlayed);
+        int RunsPlayed,
+        string AvatarUrl);
 }

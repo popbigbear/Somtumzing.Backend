@@ -9,6 +9,7 @@ using Somtumzing.Backend.Api.Models;
 using Somtumzing.Backend.Api.Services;
 using System.Text.Encodings.Web; // 👈 เพิ่ม using ตัวนี้ด้านบนสุดของไฟล์ Program.cs
 using System.Text.Json;          // 👈 เพิ่ม using ตัวนี้ด้วยครับ
+using System.IdentityModel.Tokens.Jwt;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -84,6 +85,10 @@ builder.Services.ConfigureApplicationCookie(options =>
     options.ExpireTimeSpan = TimeSpan.FromHours(8);
     options.SlidingExpiration = true;
 });
+
+
+// ป้องกันไม่ให้ ASP.NET Core เปลี่ยนชื่อ Claim 'role' ไปเป็น Schema ยาวๆ
+JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
 
 builder.Services.AddAuthentication(options =>
     {

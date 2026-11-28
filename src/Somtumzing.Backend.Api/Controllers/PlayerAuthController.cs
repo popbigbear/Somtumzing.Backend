@@ -243,7 +243,8 @@ public sealed class PlayerAuthController(
                     BestScore: user.BestScore, // อ่านจาก Database จริง
                     TotalServed: user.TotalServed, // อ่านจาก Database จริง
                     Upgrades: new Dictionary<string, int>(),
-                    CreatedAt: user.CreatedAtUtc.ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
+                    CreatedAt: user.CreatedAtUtc.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"),
+                    AvatarUrl: "/assets/images/avatars/default.png"
                 )));
         }
         catch (Exception ex)
@@ -548,7 +549,8 @@ public sealed class PlayerAuthController(
             BestScore: user.BestScore,
             TotalServed: user.TotalServed,
             Upgrades: new Dictionary<string, int> { { "mortar_golden", 1 } },
-            CreatedAt: user.CreatedAtUtc.ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
+            CreatedAt: user.CreatedAtUtc.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"),
+            AvatarUrl: "/assets/images/avatars/default.png"
         ));
     }
 
@@ -596,7 +598,8 @@ public sealed class PlayerAuthController(
     public sealed record PlayerProfileResponse(
         Guid Id,
         string? Username,
-        DateTimeOffset CreatedAtUtc);
+        DateTimeOffset CreatedAtUtc,
+        string AvatarUrl);
     public sealed record GuestLoginRequest(
         [Required]
         [StringLength(128, MinimumLength = 8)]
@@ -617,7 +620,8 @@ public sealed class PlayerAuthController(
         int BestScore,
         int TotalServed,
         Dictionary<string, int>? Upgrades,
-        string CreatedAt);
+        string CreatedAt,
+        string AvatarUrl);
 
     public sealed record UpdateDisplayNameRequest(
     [Required]
@@ -640,5 +644,6 @@ public sealed class PlayerAuthController(
         Dictionary<string, int> Upgrades,
         string CreatedAt,
         int JoinedDays,
-        int RunsPlayed);
+        int RunsPlayed,
+        string AvatarUrl);
 }

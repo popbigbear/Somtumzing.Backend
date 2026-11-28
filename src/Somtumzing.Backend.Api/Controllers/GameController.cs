@@ -52,7 +52,8 @@ public sealed class GameController(
                 Id: c.CosmeticKey,
                 Name: c.DisplayName,
                 Unlocked: c.Unlocked,
-                IsEquipped: c.IsEquipped
+                IsEquipped: c.IsEquipped,
+                ImageUrl: c.ImageUrl ?? "/assets/images/cosmetics/default.png"
             )).ToList();
 
             return Ok(new CollectionResponse(items));
@@ -102,7 +103,8 @@ public sealed class GameController(
                 Title: e.Title,
                 Description: e.Description ?? string.Empty,
                 StartsAt: e.StartsAtUtc.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"),
-                EndsAt: e.EndsAtUtc.ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
+                EndsAt: e.EndsAtUtc.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"),
+                ImageUrl: e.ImageUrl ?? "/assets/images/events/default.png"
             )).ToList();
 
             return Ok(new EventsResponse(items));
@@ -178,7 +180,8 @@ public sealed class GameController(
                 Target: target,
                 IsCompleted: isCompleted,
                 IsClaimed: isClaimed,
-                RewardConfig: gameEvent.RewardConfig
+                RewardConfig: gameEvent.RewardConfig,
+                ImageUrl: gameEvent.ImageUrl ?? "/assets/images/events/default.png"
             ));
         }
         catch (Exception ex)
@@ -458,7 +461,8 @@ public sealed class GameController(
                     RewardCoins: master.RewardCoins,
                     RewardDiamonds: master.RewardDiamonds,
                     IsCompleted: isCompleted,
-                    IsClaimed: isClaimed);
+                    IsClaimed: isClaimed,
+                    ImageUrl: master.ImageUrl ?? "/assets/images/achievements/default.png");
             }).ToList();
 
             return Ok(new AchievementsResponse(items));
@@ -580,7 +584,9 @@ public sealed class GameController(
                 BestScore: user.BestScore,
                 TotalServed: user.TotalServed,
                 Upgrades: new Dictionary<string, int> { { "mortar_golden", 1 } },
-                CreatedAt: user.CreatedAtUtc.ToString("yyyy-MM-ddTHH:mm:ss") + "Z");
+                CreatedAt: user.CreatedAtUtc.ToString("yyyy-MM-ddTHH:mm:ss") + "Z",
+                AvatarUrl: "/assets/images/avatars/default.png",
+                RunsPlayed: user.RunsPlayed);
 
             return Ok(new ClaimAchievementResponse(
                 Player: updatedPlayer,
@@ -697,9 +703,9 @@ public sealed class GameController(
         // จำลองข้อมูล Leaderboard อันดับผู้เล่น
         var leaders = new List<LeaderboardItem>
         {
-            new(Rank: 1, PlayerId: "p_proplayer01", DisplayName: "เซียนส้มตำ", BestScore: 5420),
-            new(Rank: 2, PlayerId: "p_somtummaster", DisplayName: "ครกทองคำ", BestScore: 4890),
-            new(Rank: 3, PlayerId: "p_papayaking", DisplayName: "ราชาละมุด", BestScore: 4120)
+            new(Rank: 1, PlayerId: "p_proplayer01", DisplayName: "เซียนส้มตำ", BestScore: 5420, AvatarUrl: "/assets/images/avatars/default.png"),
+            new(Rank: 2, PlayerId: "p_somtummaster", DisplayName: "ครกทองคำ", BestScore: 4890, AvatarUrl: "/assets/images/avatars/default.png"),
+            new(Rank: 3, PlayerId: "p_papayaking", DisplayName: "ราชาละมุด", BestScore: 4120, AvatarUrl: "/assets/images/avatars/default.png")
         };
 
         return Ok(new LeaderboardResponse(leaders));
@@ -759,7 +765,9 @@ public sealed class GameController(
             BestScore: user.BestScore,     // อ่านค่าจริงจาก Database
             TotalServed: user.TotalServed, // อ่านค่าจริงจาก Database
             Upgrades: new Dictionary<string, int> { { "mortar_golden", 1 } },
-            CreatedAt: user.CreatedAtUtc.ToString("yyyy-MM-ddTHH:mm:ss") + "Z"));
+            CreatedAt: user.CreatedAtUtc.ToString("yyyy-MM-ddTHH:mm:ss") + "Z",
+            AvatarUrl: "/assets/images/avatars/default.png",
+            RunsPlayed: user.RunsPlayed));
     }
 
     // ==========================================
@@ -786,7 +794,7 @@ public sealed class GameController(
 
             int joinedDays = Math.Max(1, (int)(DateTimeOffset.UtcNow - user.CreatedAtUtc).TotalDays);
 
-            var response = new ProfileResponse(
+var response = new ProfileResponse(
                 Id: $"p_{user.Id:N}".Substring(0, 12),
                 DisplayName: user.DisplayName ?? user.UserName ?? $"ร้านใหม่ #{user.Id.ToString("N").Substring(0, 4).ToUpper()}",
                 Coins: user.Coins,         // อ่านค่า Coins จริงจาก Database
@@ -795,7 +803,8 @@ public sealed class GameController(
                 Upgrades: new Dictionary<string, int> { { "mortar_golden", 1 } }, // ปรับให้สอดคล้องกับ Endpoint อื่น
                 CreatedAt: user.CreatedAtUtc.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"),
                 JoinedDays: joinedDays,
-                RunsPlayed: 0);
+                RunsPlayed: user.RunsPlayed,
+                AvatarUrl: "/assets/images/avatars/default.png");
 
             logger.LogInformation(GameEvent, "Init profile fetched successfully for player {PlayerId}", userId);
 
@@ -892,8 +901,8 @@ public sealed class GameController(
             {
                 var defaultCosmetics = new List<PlayerCosmetic>
                 {
-                    new() { PK = Guid.NewGuid(), PlayerPK = userId.Value, CosmeticKey = "cart-classic", DisplayName = "รถเข็นคู่ใจ", Unlocked = true },
-                    new() { PK = Guid.NewGuid(), PlayerPK = userId.Value, CosmeticKey = "neon-sign", DisplayName = "ป้ายนีออน", Unlocked = false }
+                    new() { PK = Guid.NewGuid(), PlayerPK = userId.Value, CosmeticKey = "cart-classic", DisplayName = "รถเข็นคู่ใจ", Unlocked = true, Status = "ACTIVE" },
+                    new() { PK = Guid.NewGuid(), PlayerPK = userId.Value, CosmeticKey = "neon-sign", DisplayName = "ป้ายนีออน", Unlocked = false, Status = "INACTIVE" }
                 };
                 database.PlayerCosmetics.AddRange(defaultCosmetics);
                 await database.SaveChangesAsync(cancellationToken);
@@ -901,7 +910,11 @@ public sealed class GameController(
             }
 
             var ingredientsDict = playerIngredients.ToDictionary(i => i.ItemKey, i => i.Quantity);
-            var cosmeticsList = playerCosmetics.Select(c => new CosmeticItem(c.CosmeticKey, c.DisplayName, c.Unlocked)).ToList();
+            var cosmeticsList = playerCosmetics.Select(c => new CosmeticItem(
+                c.CosmeticKey, 
+                c.DisplayName, 
+                c.Unlocked, 
+                c.ImageUrl ?? "/assets/images/cosmetics/default.png")).ToList();
 
             var response = new InventoryResponse(
                 Energy: user.Energy,   // ดึงจากฟิลด์ Energy จริงในตาราง Users
@@ -1061,7 +1074,8 @@ public sealed class GameController(
                 Target: reader.GetInt32(4),
                 RewardCoins: reader.GetInt32(5),
                 IsCompleted: reader.GetBoolean(6),
-                IsClaimed: reader.GetBoolean(7)
+                IsClaimed: reader.GetBoolean(7),
+                ImageUrl: "/assets/images/missions/default.png"
             ));
         }
 
@@ -1187,13 +1201,13 @@ public sealed class GameController(
             // สร้างปฏิทินรางวัล 7 วัน
             var rewards = new List<DailyRewardItem>
             {
-                new(Day: 1, Coins: 50, Claimed: dailyState.CurrentStreak >= 1 && dailyState.TodayClaimed),
-                new(Day: 2, Coins: 75, Claimed: dailyState.CurrentStreak >= 2 && dailyState.TodayClaimed),
-                new(Day: 3, Coins: 100, Claimed: dailyState.CurrentStreak >= 3 && dailyState.TodayClaimed),
-                new(Day: 4, Coins: 125, Claimed: dailyState.CurrentStreak >= 4 && dailyState.TodayClaimed),
-                new(Day: 5, Coins: 150, Claimed: dailyState.CurrentStreak >= 5 && dailyState.TodayClaimed),
-                new(Day: 6, Coins: 200, Claimed: dailyState.CurrentStreak >= 6 && dailyState.TodayClaimed),
-                new(Day: 7, Coins: 300, Claimed: dailyState.CurrentStreak >= 7 && dailyState.TodayClaimed)
+                new(Day: 1, Coins: 50, Claimed: dailyState.CurrentStreak >= 1 && dailyState.TodayClaimed, ImageUrl: "/assets/images/daily/default.png"),
+                new(Day: 2, Coins: 75, Claimed: dailyState.CurrentStreak >= 2 && dailyState.TodayClaimed, ImageUrl: "/assets/images/daily/default.png"),
+                new(Day: 3, Coins: 100, Claimed: dailyState.CurrentStreak >= 3 && dailyState.TodayClaimed, ImageUrl: "/assets/images/daily/default.png"),
+                new(Day: 4, Coins: 125, Claimed: dailyState.CurrentStreak >= 4 && dailyState.TodayClaimed, ImageUrl: "/assets/images/daily/default.png"),
+                new(Day: 5, Coins: 150, Claimed: dailyState.CurrentStreak >= 5 && dailyState.TodayClaimed, ImageUrl: "/assets/images/daily/default.png"),
+                new(Day: 6, Coins: 200, Claimed: dailyState.CurrentStreak >= 6 && dailyState.TodayClaimed, ImageUrl: "/assets/images/daily/default.png"),
+                new(Day: 7, Coins: 300, Claimed: dailyState.CurrentStreak >= 7 && dailyState.TodayClaimed, ImageUrl: "/assets/images/daily/default.png")
             };
 
             return Ok(new DailyRewardsResponse(
@@ -1315,7 +1329,7 @@ public sealed class GameController(
     }
 
     // DTO Records เพิ่มเติมสำหรับ Daily Rewards
-    public sealed record DailyRewardItem(int Day, int Coins, bool Claimed);
+    public sealed record DailyRewardItem(int Day, int Coins, bool Claimed, string ImageUrl);
     public sealed record DailyRewardsResponse(int CurrentStreak, bool TodayClaimed, List<DailyRewardItem> Rewards);
     public sealed record ClaimDailyRewardResponse(int RewardCoins, int CurrentStreak, int TotalCoins);
 
@@ -1329,7 +1343,8 @@ public sealed class GameController(
         int Target,
         int RewardCoins,
         bool IsCompleted,
-        bool IsClaimed);
+        bool IsClaimed,
+        string ImageUrl);
     public sealed record ClaimMissionResponse(
         string MissionId,
         int CoinsAwarded,
@@ -1344,10 +1359,11 @@ public sealed class GameController(
     public sealed record CosmeticItem(
         string Id,
         string Name,
-        bool Unlocked);
+        bool Unlocked,
+        string ImageUrl);
 
      // DTO Records สำหรับ Collection
-    public sealed record CollectionItem(string Id, string Name, bool Unlocked, bool IsEquipped);
+    public sealed record CollectionItem(string Id, string Name, bool Unlocked, bool IsEquipped, string ImageUrl);
     public sealed record CollectionResponse(List<CollectionItem> Items);
     public sealed record EquipCollectionResponse(string ItemId, bool IsEquipped, string Message);
 
@@ -1361,7 +1377,7 @@ public sealed class GameController(
     public sealed record RunResponse(string RunId, string Status, string StartedAt);
     public sealed record FinishRunRequest([Range(0, int.MaxValue)] int Score, int TotalServed);
     public sealed record FinishRunResponse(string RunId, int Score, int CoinsEarned, int TotalCoins, bool NewBestScore);
-    public sealed record LeaderboardItem(int Rank, string PlayerId, string DisplayName, int BestScore);
+    public sealed record LeaderboardItem(int Rank, string PlayerId, string DisplayName, int BestScore, string AvatarUrl);
     public sealed record LeaderboardResponse(List<LeaderboardItem> Leaders);
     public sealed record PurchaseResponse(string UpgradeId, int NewLevel, int RemainingCoins);
     public sealed record FullPlayerResponse(
@@ -1373,7 +1389,9 @@ public sealed class GameController(
         int BestScore,
         int TotalServed,
         Dictionary<string, int> Upgrades,
-        string CreatedAt);
+        string CreatedAt,
+        string AvatarUrl,
+        int RunsPlayed);
 
     
     public sealed record ProfileResponse(
@@ -1385,7 +1403,8 @@ public sealed class GameController(
         Dictionary<string, int> Upgrades,
         string CreatedAt,
         int JoinedDays,
-        int RunsPlayed);
+        int RunsPlayed,
+        string AvatarUrl);
 
     
     // DTO Records สำหรับ Achievements
@@ -1398,7 +1417,8 @@ public sealed class GameController(
         int RewardCoins,
         int RewardDiamonds,
         bool IsCompleted,
-        bool IsClaimed);
+        bool IsClaimed,
+        string ImageUrl);
 
     public sealed record AchievementsResponse(List<AchievementItem> Achievements);
 
@@ -1407,7 +1427,7 @@ public sealed class GameController(
         int RewardCoins,
         int RewardDiamonds);
 
-    public sealed record EventItem(string Id, string Title, string Description, string StartsAt, string EndsAt);
+    public sealed record EventItem(string Id, string Title, string Description, string StartsAt, string EndsAt, string ImageUrl);
     public sealed record EventsResponse(List<EventItem> Events);
     public sealed record EventDetailResponse(
         string Id,
@@ -1419,5 +1439,6 @@ public sealed class GameController(
         int Target,
         bool IsCompleted,
         bool IsClaimed,
-        string RewardConfig);
+        string RewardConfig,
+        string ImageUrl);
 }

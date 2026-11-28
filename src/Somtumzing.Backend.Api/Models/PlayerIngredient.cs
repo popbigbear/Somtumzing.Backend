@@ -15,4 +15,5 @@ public sealed class PlayerIngredient : IGameDataEntity
     public Guid PlayerPK { get; set; }
     public string ItemKey { get; set; } = string.Empty;
     public int Quantity { get; set; } = 0;
+    public string? ImageUrl { get; set; }
 }

@@ -54,6 +54,12 @@ public sealed class GameDbContext(DbContextOptions<GameDbContext> options)
 
     public DbSet<EventLeaderboard> EventLeaderboards => Set<EventLeaderboard>();
 
+    public DbSet<GameConfig> GameConfigs => Set<GameConfig>();
+
+    public DbSet<CustomerTable> CustomerTables => Set<CustomerTable>();
+
+    public DbSet<GameConstant> GameConstants => Set<GameConstant>();
+
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -82,6 +88,9 @@ public sealed class GameDbContext(DbContextOptions<GameDbContext> options)
         ConfigureGameEvent(builder);
         ConfigurePlayerGameEvent(builder);
         ConfigureEventLeaderboard(builder);
+        ConfigureGameConfig(builder);
+        ConfigureCustomerTable(builder);
+        ConfigureGameConstant(builder);
 
         builder.Entity<PlayerUpgrade>()
         .HasOne(pu => pu.Upgrade)
@@ -755,5 +764,80 @@ public sealed class GameDbContext(DbContextOptions<GameDbContext> options)
             .OnDelete(DeleteBehavior.Restrict);
         entity.HasOne<ApplicationUser>().WithMany().HasForeignKey("UpdatedBy")
             .OnDelete(DeleteBehavior.Restrict);
+    }
+
+    private static void ConfigureGameConfig(ModelBuilder builder)
+    {
+        ConfigureRecord<GameConfig>(builder, "GameConfigs", "Config", "GC", "ACTIVE");
+        builder.Entity<GameConfig>(entity =>
+        {
+            entity.Property(row => row.Version).HasMaxLength(50).HasDefaultValue("1.0.0").IsRequired();
+            entity.Property(row => row.MaxEnergy).HasDefaultValue(100);
+            entity.Property(row => row.EnergyRegenSeconds).HasDefaultValue(300);
+            entity.Property(row => row.DailyRewardEnabled).HasDefaultValue(true);
+            entity.Property(row => row.MaintenanceMode).HasDefaultValue(false);
+            entity.Property(row => row.SupportedPlatforms).HasDefaultValueSql("ARRAY['web','ios','android']");
+            entity.Property(row => row.Customers).HasDefaultValueSql("ARRAY[]::text[]");
+            entity.Property(row => row.RunSeconds).HasDefaultValue(180);
+            entity.Property(row => row.MaxPerIngredient).HasDefaultValue(10);
+            entity.Property(row => row.MaxWarnings).HasDefaultValue(3);
+            entity.Property(row => row.PaotungScansRequired).HasDefaultValue(3);
+            entity.Property(row => row.TessakitFine).HasDefaultValue(50);
+            entity.Property(row => row.PaotungChance).HasDefaultValue(20);
+            entity.Property(row => row.PaotungBonus).HasDefaultValue(100);
+            entity.Property(row => row.PaotungFailChance).HasDefaultValue(10);
+            entity.Property(row => row.TessakitChancePerSec).HasDefaultValue(5);
+            entity.Property(row => row.TessakitWarningSec).HasDefaultValue(10);
+            entity.Property(row => row.TableCount).HasDefaultValue(4);
+            entity.Property(row => row.DeliveryOrders).HasDefaultValue(2);
+            entity.Property(row => row.MaxPowerCards).HasDefaultValue(2);
+            entity.Property(row => row.DiceWinCoins).HasDefaultValue(25);
+            entity.Property(row => row.DiceLossCoins).HasDefaultValue(-10);
+            entity.Property(row => row.DiceWinPowerCard).HasDefaultValue(true);
+            entity.Property(row => row.SpeedCardDurationSec).HasDefaultValue(12);
+            entity.Property(row => row.SpeedCardBonusCoins).HasDefaultValue(10);
+            entity.Property(row => row.DeliveryTipCoins).HasDefaultValue(15);
+            entity.Property(row => row.FleeImmunitySec).HasDefaultValue(6);
+            entity.Property(row => row.QueueCapacity).HasDefaultValue(5);
+            entity.Property(row => row.UrgentThreshold).HasDefaultValue(4);
+            entity.Property(row => row.WarningTimeSec).HasDefaultValue(10);
+            entity.Property(row => row.UrgentSlotBase).HasDefaultValue(1);
+            entity.Property(row => row.UrgentSlotIntervalSec).HasDefaultValue(10);
+        });
+    }
+
+    private static void ConfigureCustomerTable(ModelBuilder builder)
+    {
+        ConfigureRecord<CustomerTable>(builder, "CustomerTables", "Table", "CT", "ACTIVE", "INACTIVE");
+        builder.Entity<CustomerTable>(entity =>
+        {
+            entity.Property(row => row.TableNumber).IsRequired();
+            entity.HasIndex(row => row.TableNumber).IsUnique();
+            entity.Property(row => row.Capacity).HasDefaultValue(4);
+            entity.Property(row => row.InitialStatus).HasMaxLength(24).HasDefaultValue("EMPTY");
+            entity.Property(row => row.AssignedCustomerType).HasMaxLength(32);
+            entity.Property(row => row.PositionX).HasDefaultValue(0);
+            entity.Property(row => row.PositionY).HasDefaultValue(0);
+            entity.Property(row => row.Zone).HasMaxLength(32);
+            entity.Property(row => row.IsActive).HasDefaultValue(true);
+            entity.Property(row => row.Notes).HasMaxLength(500);
+        });
+    }
+
+    private static void ConfigureGameConstant(ModelBuilder builder)
+    {
+        ConfigureRecord<GameConstant>(builder, "GameConstants", "Const", "GC", "ACTIVE", "INACTIVE");
+        builder.Entity<GameConstant>(entity =>
+        {
+            entity.Property(row => row.ConstantKey).HasMaxLength(64).IsRequired();
+            entity.HasIndex(row => row.ConstantKey).IsUnique();
+            entity.Property(row => row.Category).HasMaxLength(32).IsRequired();
+            entity.HasIndex(row => row.Category);
+            entity.Property(row => row.DisplayName).HasMaxLength(160).IsRequired();
+            entity.Property(row => row.Description).HasMaxLength(500);
+            entity.Property(row => row.ValueJson).HasDefaultValue("{}");
+            entity.Property(row => row.SortOrder).HasDefaultValue(0);
+            entity.Property(row => row.IsActive).HasDefaultValue(true);
+        });
     }
 }

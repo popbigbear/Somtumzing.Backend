@@ -24,6 +24,10 @@ public sealed class ApplicationUser : IdentityUser<Guid>
     public int Energy { get; set; } = 10;
     public int BestScore { get; set; } = 0;
     public int TotalServed { get; set; } = 0;
+    public int RunsPlayed { get; set; } = 0;
 
     public ICollection<RefreshToken> RefreshTokens { get; } = new List<RefreshToken>();
+
+    // Avatar/Profile image URL
+    public string? AvatarUrl { get; set; }
 }
